@@ -125,4 +125,8 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 ## 参考资源
 
 - [收钱吧开发者文档](https://doc.shouqianba.com/)
-- [收钱吧 GitHub Demo](https://github.com/AmazingWhere)
+- [收钱吧 GitHub (WoSai)](https://github.com/WoSai)
+- [Java Demo](https://github.com/WoSai/Shouqianba-mobile-payment-API-demo-Java)
+- [Python Demo](https://github.com/WoSai/Shouqianba-mobile-payment-API-demo-Python)
+- [C# Demo](https://github.com/WoSai/Shouqianba-mobile-payment-API-demo-CSharp)
+- [API 文档源码](https://github.com/WoSai/shouqianba-doc)

@@ -72,7 +72,7 @@ public class PayExample {
 
         // 3. 发送支付请求
         Request request = new Request.Builder()
-            .url(API_BASE + "/api/v2/pay")
+            .url(API_BASE + "/upay/v2/pay")
             .addHeader("Authorization", terminalSn + " " + sign)
             .addHeader("Content-Type", "application/json; charset=utf-8")
             .post(RequestBody.create(bodyStr, JSON_TYPE))
@@ -196,7 +196,7 @@ public class PayExample {
         String sign = md5(bodyStr + terminalKey);
 
         Request request = new Request.Builder()
-            .url(API_BASE + "/api/v2/query")
+            .url(API_BASE + "/upay/v2/query")
             .addHeader("Authorization", terminalSn + " " + sign)
             .addHeader("Content-Type", "application/json; charset=utf-8")
             .post(RequestBody.create(bodyStr, JSON_TYPE))

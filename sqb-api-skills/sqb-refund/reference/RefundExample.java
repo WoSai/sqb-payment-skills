@@ -70,7 +70,7 @@ public class RefundExample {
 
         // 3. 发送退款请求
         Request request = new Request.Builder()
-            .url(API_BASE + "/api/v2/refund")
+            .url(API_BASE + "/upay/v2/refund")
             .addHeader("Authorization", terminalSn + " " + sign)
             .addHeader("Content-Type", "application/json; charset=utf-8")
             .post(RequestBody.create(bodyStr, JSON))

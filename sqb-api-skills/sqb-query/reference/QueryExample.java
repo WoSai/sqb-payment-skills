@@ -100,7 +100,7 @@ public class QueryExample {
         String sign = md5(bodyStr + terminalKey);
 
         Request request = new Request.Builder()
-            .url(API_BASE + "/api/v2/query")
+            .url(API_BASE + "/upay/v2/query")
             .addHeader("Authorization", terminalSn + " " + sign)
             .addHeader("Content-Type", "application/json; charset=utf-8")
             .post(RequestBody.create(bodyStr, JSON))

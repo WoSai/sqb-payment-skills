@@ -86,7 +86,7 @@ class ShouqianbaRefundClient:
         }
 
         resp = requests.post(
-            f"{API_BASE}/api/v2/refund",
+            f"{API_BASE}/upay/v2/refund",
             data=body_str.encode("utf-8"),
             headers=headers,
             timeout=30,
