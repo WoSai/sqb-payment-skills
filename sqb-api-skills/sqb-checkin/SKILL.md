@@ -104,7 +104,13 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 - 新 key 获取后必须同步到所有节点
 - 建议使用分布式锁防止多节点同时签到
 
-### 4. 签到频率
+### 4. 密钥有效期
+
+- `terminal_key` 每日自然日过期
+- 签到后，当前 key 和上一个 key 同时有效（双 key 机制）
+- 无效/过期的 key 会触发 `ILLEGAL_SIGN` 错误
+
+### 5. 签到频率
 
 - 建议每日首次交易前签到
 - 不要过于频繁签到（避免密钥频繁更新带来的同步风险）

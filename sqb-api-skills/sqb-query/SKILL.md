@@ -31,7 +31,7 @@ description: "[后端项目使用]收钱吧订单查询接口技能。用于查�
 
 | 项目 | 说明 |
 |---|---|
-| 请求路径 | `/api/v2/query` |
+| 请求路径 | `/upay/v2/query` |
 | 请求方法 | POST |
 | Content-Type | `application/json; charset=utf-8` |
 | API 域名 | `https://vsi-api.shouqianba.com` |
@@ -111,6 +111,7 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 | `REFUNDED` | 全额退款 | **是** |
 | `PARTIAL_REFUNDED` | 部分退款 | **是** |
 | `REFUND_ERROR` | 退款异常 | 否 |
+| `CANCELED` | 已撤销 | **是** |
 | `CANCEL_ERROR` | 撤销异常 | 否 |
 
 ## 轮询查询模式

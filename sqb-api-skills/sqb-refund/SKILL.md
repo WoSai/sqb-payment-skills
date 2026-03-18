@@ -29,7 +29,7 @@ description: "[后端项目使用]收钱吧退款接口技能。用于对已支�
 
 | 项目 | 说明 |
 |---|---|
-| 请求路径 | `/api/v2/refund` |
+| 请求路径 | `/upay/v2/refund` |
 | 请求方法 | POST |
 | Content-Type | `application/json; charset=utf-8` |
 | API 域名 | `https://vsi-api.shouqianba.com` |
@@ -130,7 +130,7 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 | 原因 | 说明 | 解决方案 |
 |---|---|---|
 | 余额不足 | 顾客支付渠道余额不足以退款 | 提示顾客充值后重试 |
-| 超过退款期限 | 超过渠道允许的退款时限 | 线下处理 |
+| 超过退款期限 | 超过 3 个月退款时限 | 线下处理 |
 | 订单状态不允许 | 订单非 PAID 状态 | 先查询确认订单状态 |
 | 退款金额超限 | 退款金额大于可退金额 | 检查已退款金额 |
 | 重复退款请求号 | refund_request_no 重复 | 更换退款请求号 |

@@ -88,7 +88,7 @@ class ShouqianbaPayClient:
             **kwargs,
         }
 
-        result = self._request("/api/v2/pay", body)
+        result = self._request("/upay/v2/pay", body)
         return self._parse_pay_response(result, client_sn)
 
     def _parse_pay_response(self, result: dict, client_sn: str) -> dict:
@@ -129,7 +129,7 @@ class ShouqianbaPayClient:
             body["sn"] = sn
         elif client_sn:
             body["client_sn"] = client_sn
-        return self._request("/api/v2/query", body)
+        return self._request("/upay/v2/query", body)
 
     def pay_with_polling(
         self,

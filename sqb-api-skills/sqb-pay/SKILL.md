@@ -39,7 +39,7 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 
 | 项目 | 说明 |
 |---|---|
-| 请求路径 | `/api/v2/pay` |
+| 请求路径 | `/upay/v2/pay` |
 | 请求方法 | POST |
 | Content-Type | `application/json; charset=utf-8` |
 | API 域名 | `https://vsi-api.shouqianba.com` |
@@ -58,8 +58,23 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 | longitude | string | N | 经度 |
 | latitude | string | N | 纬度 |
 | extended | object | N | 扩展参数 |
+| payway | string | N | 支付方式（见下方支付渠道表） |
+| device_id | string | N | 终端设备标识 |
+| goods_details | array | N | 商品详情列表 |
 | reflect | string | N | 反射参数，任意字符串，原样返回 |
 | notify_url | string | N | 回调通知地址 |
+
+### payway 支付渠道
+
+| payway | 渠道 |
+|---|---|
+| 1 | 支付宝 |
+| 3 | 微信支付 |
+| 4 | 百度钱包 |
+| 5 | 京东钱包 |
+| 6 | QQ 钱包 |
+
+> 通常无需指定 payway，收钱吧会根据 dynamic_id 自动识别支付渠道。
 
 ## 请求示例
 
@@ -204,8 +219,9 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 2. **签名字符串一致性**—— MD5 计算时的 body 字符串必须与实际发送的完全一致
 3. **金额单位为分**—— 100 表示 1 元，不要传入 "1.00"
 4. **X-Forwarded-For**—— 建议在请求头中传入终端的真实公网 IP
-5. **幂等性**—— 相同 client_sn 重复请求会返回已有订单信息，不会重复扣款
+5. **client_sn 不可复用**—— 支付失败后不能用相同 client_sn 重试，必须生成新的 client_sn
 6. **付款码有效期**—— 付款码通常有效期为 1 分钟，超时需让顾客刷新
+7. **支付超时**—— 支付请求约 40 秒超时，超时后需通过查询接口确认状态
 
 ## 架构设计
 
