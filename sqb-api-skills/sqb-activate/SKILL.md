@@ -1,9 +1,18 @@
 ---
 name: sqb-activate
-description: 收钱吧终端激活接口。当用户提到"收钱吧激活"、"终端激活"、"activate terminal"、"激活码"时触发。
+description: "[后端项目使用]收钱吧终端激活接口技能。用于将设备注册为收钱吧终端，获取terminal_sn和terminal_key。当用户提到收钱吧激活、终端激活、activate terminal、激活码时触发。"
 ---
 
 # 收钱吧终端激活接口
+
+## 引导词
+
+- 收钱吧激活
+- 终端激活
+- activate terminal
+- 激活码
+- 设备注册
+- sqb-activate
 
 ## 概述
 
@@ -14,12 +23,16 @@ description: 收钱吧终端激活接口。当用户提到"收钱吧激活"、"�
 - 已获取服务商凭证：`vendor_sn` 和 `vendor_key`
 - 已从收钱吧获取激活码（code），每个激活码绑定一个门店
 - API 域名：`https://vsi-api.shouqianba.com`
+- 收钱吧无官方 SDK，使用纯 HTTP API 对接，需引入 HTTP 客户端库和 JSON 库
 
-## 接口信息
+## 接口说明
 
-- **URL**: `/terminal/activate`
-- **方法**: POST
-- **Content-Type**: `application/json; charset=utf-8`
+| 项目 | 说明 |
+|---|---|
+| 请求路径 | `/terminal/activate` |
+| 请求方法 | POST |
+| Content-Type | `application/json; charset=utf-8` |
+| API 域名 | `https://vsi-api.shouqianba.com` |
 
 ## 签名方式
 
@@ -100,15 +113,41 @@ Authorization: {vendor_sn} {MD5(request_body + vendor_key)}
 ### 4. 无沙盒环境
 激活后的终端对应真实商户和门店，所有交易都是真实的。
 
+## 架构设计
+
+```
+项目结构
+├── controller/
+│   └── SqbTerminalController      # 终端管理控制器
+├── service/
+│   └── SqbTerminalService         # 终端激活/签到业务逻辑
+├── model/
+│   ├── ActivateRequest            # 激活请求 DTO
+│   └── ActivateResponse           # 激活响应 DTO
+└── util/
+    └── SqbSignUtil                # 签名工具类（MD5）
+```
+
+## 实现步骤
+
+1. 创建签名工具类 `SqbSignUtil`，实现 `MD5(body + key)` 签名逻辑
+2. 创建激活请求 DTO `ActivateRequest`（app_id, code, device_id）
+3. 实现激活服务 `SqbTerminalService.activate()`，包含签名计算和 HTTP 调用
+4. 解析响应，提取 `terminal_sn` 和 `terminal_key`
+5. 持久化存储 `terminal_key`（数据库或配置文件）
+6. 创建控制器接口供管理后台调用
+
 ## 生成规则
 
-当生成激活接口代码时，必须包含：
+当生成激活接口代码时，**必须**包含：
 1. vendor 级别签名逻辑（MD5(body + vendor_key)）
 2. 完整的请求参数构建
 3. 响应解析，提取 terminal_sn 和 terminal_key
 4. terminal_key 的持久化存储逻辑（至少提供存储接口/占位）
 5. 错误处理（激活失败的重试或提示）
 
-## 参考代码
+## 代码示例
 
-见 `reference/` 目录下的多语言示例。
+见 `reference/` 目录：
+- `ActivateExample.java` — Java 示例（OkHttp + Jackson）
+- `activate_example.py` — Python 示例（requests）

@@ -1,9 +1,18 @@
 ---
 name: sqb-notify
-description: 收钱吧异步回调通知处理。触发词：收钱吧回调、支付通知、异步通知、notify、webhook
+description: "[后端项目使用]收钱吧异步回调通知处理技能。用于接收和处理收钱吧的交易状态变化通知。当用户提到收钱吧回调、支付通知、异步通知、notify、webhook时触发。"
 ---
 
 # 收钱吧异步回调通知
+
+## 引导词
+
+- 收钱吧回调
+- 支付通知
+- 异步通知
+- notify
+- webhook
+- 回调处理
 
 ## 概述
 
@@ -108,6 +117,8 @@ def verify_callback(request):
 5. 返回 200 响应
 6. 异常处理与日志记录
 
-## 参考代码
+## 代码示例
 
-见 `reference/` 目录下的多语言示例。
+见 `reference/` 目录：
+- `NotifyExample.java` — Java 示例（Spring Boot 风格）
+- `notify_example.py` — Python 示例（Flask）
