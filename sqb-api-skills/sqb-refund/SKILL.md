@@ -1,9 +1,19 @@
 ---
 name: sqb-refund
-description: 收钱吧退款接口。触发词：收钱吧退款、订单退款、refund、退钱、/refund
+description: "[后端项目使用]收钱吧退款接口技能。用于对已支付订单进行全额或部分退款。当用户提到收钱吧退款、订单退款、refund、退钱、/refund时触发。"
 ---
 
 # 收钱吧退款接口
+
+## 引导词
+
+- 收钱吧退款
+- 订单退款
+- refund
+- 退钱
+- /refund
+- 部分退款
+- 全额退款
 
 ## 概述
 
@@ -15,11 +25,14 @@ description: 收钱吧退款接口。触发词：收钱吧退款、订单退款�
 - 原订单状态为 `PAID`（已支付）
 - API 域名：`https://vsi-api.shouqianba.com`
 
-## 接口信息
+## 接口说明
 
-- **URL**: `/api/v2/refund`
-- **方法**: POST
-- **Content-Type**: `application/json; charset=utf-8`
+| 项目 | 说明 |
+|---|---|
+| 请求路径 | `/api/v2/refund` |
+| 请求方法 | POST |
+| Content-Type | `application/json; charset=utf-8` |
+| API 域名 | `https://vsi-api.shouqianba.com` |
 
 ## 签名方式
 
@@ -139,6 +152,8 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 4. 退款结果判定（含异步轮询）
 5. 退款失败的错误处理
 
-## 参考代码
+## 代码示例
 
-见 `reference/` 目录下的多语言示例。
+见 `reference/` 目录：
+- `RefundExample.java` — Java 示例（OkHttp + Jackson）
+- `refund_example.py` — Python 示例（requests）

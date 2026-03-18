@@ -1,9 +1,18 @@
 ---
 name: sqb-cashier-ui
-description: 收钱吧收银台前端UI组件。触发词：收银台界面、收银UI、cashier UI、POS界面、收款界面
+description: "[前端项目使用]收钱吧收银台前端UI组件技能。用于生成B扫C收银台界面，包含金额输入、扫码支付、状态展示等完整交互。当用户提到收银台界面、收银UI、cashier UI、POS界面、收款界面时触发。"
 ---
 
 # 收钱吧收银台 UI 组件
+
+## 引导词
+
+- 收银台界面
+- 收银UI
+- cashier UI
+- POS界面
+- 收款界面
+- 收银台组件
 
 ## 概述
 
@@ -155,6 +164,7 @@ function fenToYuan(fen) {
 5. 响应式布局（适配不同屏幕）
 6. 基础样式（可用 Tailwind CSS 或纯 CSS）
 
-## 参考代码
+## 代码示例
 
-见 `reference/` 目录下的示例。
+见 `reference/` 目录：
+- `CashierApp.vue` — Vue3 单文件组件完整实现

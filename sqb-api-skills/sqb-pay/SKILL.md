@@ -1,9 +1,20 @@
 ---
 name: sqb-pay
-description: 收钱吧B扫C付款码支付接口。触发词：收钱吧支付、付款码支付、扫码收款、B扫C、shouqianba pay、/pay
+description: "[后端项目使用]收钱吧B扫C付款码支付接口技能。用于商户扫描顾客付款码完成收款。当用户提到收钱吧支付、付款码支付、扫码收款、B扫C、shouqianba pay、/pay时触发。"
 ---
 
 # 收钱吧付款码支付接口
+
+## 引导词
+
+- 收钱吧支付
+- 付款码支付
+- 扫码收款
+- B扫C
+- shouqianba pay
+- /pay
+- 被扫支付
+- barcode payment
 
 ## 概述
 
@@ -24,10 +35,14 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 
 > 注意：sn 和 sign 之间有且仅有一个空格。request_body 必须是 UTF-8 编码的原始 JSON 字符串，签名时的字符串必须和实际请求体完全一致（包括字段顺序、空格等）。
 
-## 接口信息
+## 接口说明
 
-- **URL**: `/api/v2/pay`
-- **方法**: POST
+| 项目 | 说明 |
+|---|---|
+| 请求路径 | `/api/v2/pay` |
+| 请求方法 | POST |
+| Content-Type | `application/json; charset=utf-8` |
+| API 域名 | `https://vsi-api.shouqianba.com` |
 
 ## 请求参数
 
@@ -192,6 +207,34 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 5. **幂等性**—— 相同 client_sn 重复请求会返回已有订单信息，不会重复扣款
 6. **付款码有效期**—— 付款码通常有效期为 1 分钟，超时需让顾客刷新
 
+## 架构设计
+
+```
+项目结构
+├── controller/
+│   └── SqbPayController           # 支付控制器
+├── service/
+│   ├── SqbPayService              # 支付核心逻辑
+│   └── SqbQueryService            # 查询轮询逻辑
+├── model/
+│   ├── PayRequest                 # 支付请求 DTO
+│   ├── PayResponse                # 支付响应 DTO
+│   └── OrderStatus                # 订单状态枚举
+└── util/
+    ├── SqbSignUtil                # 签名工具类
+    └── SqbHttpClient              # HTTP 客户端封装
+```
+
+## 实现步骤
+
+1. 创建/复用签名工具类 `SqbSignUtil`
+2. 创建支付请求 DTO（terminal_sn, client_sn, total_amount, dynamic_id, subject, operator）
+3. 实现支付服务，包含签名计算和 HTTP 调用
+4. 实现三层状态判定逻辑
+5. 实现轮询查询机制（调用 sqb-query）
+6. 创建控制器接口供收银台调用
+7. 添加 client_sn 唯一性生成逻辑
+
 ## 生成规则
 
 当生成付款码支付代码时，**必须**包含：
@@ -208,6 +251,8 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 - 日志记录
 - 异常重试
 
-## 参考代码
+## 代码示例
 
-见 `reference/` 目录下的多语言示例。
+见 `reference/` 目录：
+- `PayExample.java` — Java 完整示例（含轮询，OkHttp + Jackson）
+- `pay_example.py` — Python 完整示例（含轮询，requests）

@@ -1,9 +1,18 @@
 ---
 name: sqb-checkin
-description: 收钱吧终端签到接口。当用户提到"收钱吧签到"、"终端签到"、"terminal checkin"、"刷新密钥"时触发。
+description: "[后端项目使用]收钱吧终端签到接口技能。用于保持终端活跃并更新terminal_key。当用户提到收钱吧签到、终端签到、terminal checkin、刷新密钥时触发。"
 ---
 
 # 收钱吧终端签到接口
+
+## 引导词
+
+- 收钱吧签到
+- 终端签到
+- terminal checkin
+- 刷新密钥
+- key 更新
+- sqb-checkin
 
 ## 概述
 
@@ -101,15 +110,26 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 - 不要过于频繁签到（避免密钥频繁更新带来的同步风险）
 - 长期不签到可能导致终端被标记为不活跃
 
+## 接口说明
+
+| 项目 | 说明 |
+|---|---|
+| 请求路径 | `/terminal/checkin` |
+| 请求方法 | POST |
+| Content-Type | `application/json; charset=utf-8` |
+| API 域名 | `https://vsi-api.shouqianba.com` |
+
 ## 生成规则
 
-当生成签到接口代码时，必须包含：
+当生成签到接口代码时，**必须**包含：
 1. terminal 级别签名逻辑
 2. **签到成功后更新 terminal_key 的逻辑**（核心）
 3. 密钥持久化更新逻辑
 4. 签到失败的异常处理（含重新激活提示）
 5. 建议包含定时签到的调度逻辑
 
-## 参考代码
+## 代码示例
 
-见 `reference/` 目录下的多语言示例。
+见 `reference/` 目录：
+- `CheckinExample.java` — Java 示例（OkHttp + Jackson）
+- `checkin_example.py` — Python 示例（requests）

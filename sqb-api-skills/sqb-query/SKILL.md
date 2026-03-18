@@ -1,9 +1,19 @@
 ---
 name: sqb-query
-description: 收钱吧订单查询接口。触发词：收钱吧查询、订单查询、交易查询、query order、/query
+description: "[后端项目使用]收钱吧订单查询接口技能。用于查询订单实时状态和支付结果轮询。当用户提到收钱吧查询、订单查询、交易查询、query order、/query时触发。"
 ---
 
 # 收钱吧订单查询接口
+
+## 引导词
+
+- 收钱吧查询
+- 订单查询
+- 交易查询
+- query order
+- /query
+- 查询订单状态
+- 轮询
 
 ## 概述
 
@@ -17,11 +27,14 @@ description: 收钱吧订单查询接口。触发词：收钱吧查询、订单�
 - 已完成终端激活（sqb-activate），持有 `terminal_sn` 和 `terminal_key`
 - API 域名：`https://vsi-api.shouqianba.com`
 
-## 接口信息
+## 接口说明
 
-- **URL**: `/api/v2/query`
-- **方法**: POST
-- **Content-Type**: `application/json; charset=utf-8`
+| 项目 | 说明 |
+|---|---|
+| 请求路径 | `/api/v2/query` |
+| 请求方法 | POST |
+| Content-Type | `application/json; charset=utf-8` |
+| API 域名 | `https://vsi-api.shouqianba.com` |
 
 ## 签名方式
 
@@ -146,6 +159,8 @@ while True:
 4. 当用于轮询时，包含完整的轮询循环逻辑
 5. 超时处理机制
 
-## 参考代码
+## 代码示例
 
-见 `reference/` 目录下的多语言示例。
+见 `reference/` 目录：
+- `QueryExample.java` — Java 示例（含轮询，OkHttp + Jackson）
+- `query_example.py` — Python 示例（含轮询，requests）
