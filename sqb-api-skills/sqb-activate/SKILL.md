@@ -1,6 +1,9 @@
 ---
 name: sqb-activate
-description: "[后端项目使用]收钱吧终端激活接口技能。用于将设备注册为收钱吧终端，获取terminal_sn和terminal_key。当用户提到收钱吧激活、终端激活、activate terminal、激活码时触发。"
+description: "[后端项目使用]收钱吧终端激活接口技能。用于使用激活码获取terminal_sn和terminal_key。当用户提到收钱吧激活、终端激活、activate terminal、激活码、设备注册时触发。"
+version: "1.1"
+tags: [payment, terminal, activate]
+globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 ---
 
 # 收钱吧终端激活接口
@@ -13,6 +16,9 @@ description: "[后端项目使用]收钱吧终端激活接口技能。用于将�
 - 激活码
 - 设备注册
 - sqb-activate
+- terminal activate
+- /terminal/activate
+- 设备激活
 
 ## 概述
 

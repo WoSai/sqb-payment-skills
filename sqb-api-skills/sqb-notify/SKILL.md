@@ -1,6 +1,9 @@
 ---
 name: sqb-notify
 description: "[后端项目使用]收钱吧异步回调通知处理技能。用于接收和处理收钱吧的交易状态变化通知。当用户提到收钱吧回调、支付通知、异步通知、notify、webhook时触发。"
+version: "1.1"
+tags: [payment, notify, webhook, callback]
+globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 ---
 
 # 收钱吧异步回调通知
@@ -13,6 +16,9 @@ description: "[后端项目使用]收钱吧异步回调通知处理技能。用�
 - notify
 - webhook
 - 回调处理
+- callback handler
+- 回调接口
+- notify_url
 
 ## 概述
 
@@ -59,26 +65,39 @@ description: "[后端项目使用]收钱吧异步回调通知处理技能。用�
 }
 ```
 
-## 回调验签
+## 回调验签（安全关键，不可跳过）
 
-收到回调后，应验证请求的合法性：
+> ⚠️ **强制要求**：生成代码时必须包含验签逻辑，不可作为可选项。验签是防止资金损失的最后一道防线。
 
-1. 使用本地存储的 `terminal_key` 验证签名
-2. 签名位于请求头 `Authorization` 中
-3. 验签方式与请求签名相同：`MD5(request_body + terminal_key)`
+收到回调后，**必须**验证请求的合法性，验签失败的请求必须直接拒绝（返回 403），不得处理任何业务逻辑。
+
+### 验签方式：RSA SHA256WithRSA
+
+1. 从 `Authorization` 请求头中提取签名值
+2. 获取收钱吧 RSA 公钥（从配置文件或密钥管理服务加载）
+3. 使用 `SHA256WithRSA` 算法，以收钱吧公钥验证 request_body 的签名
+4. 验签失败立即返回 403，不处理业务逻辑
 
 ```python
 # 伪代码
 def verify_callback(request):
     auth_header = request.headers['Authorization']
-    terminal_sn, received_sign = auth_header.split(' ', 1)
+    terminal_sn, received_sign_b64 = auth_header.split(' ', 1)
 
-    body = request.body  # 原始请求体
-    terminal_key = get_terminal_key(terminal_sn)  # 从存储中获取
+    body = request.body  # 原始请求体（UTF-8 字节流）
+    public_key = load_sqb_public_key()  # 加载收钱吧 RSA 公钥
 
-    expected_sign = md5(body + terminal_key)
-    return received_sign == expected_sign
+    # RSA SHA256WithRSA 验签
+    signature_bytes = base64.b64decode(received_sign_b64)
+    public_key.verify(signature_bytes, body, padding.PKCS1v15(), hashes.SHA256())
+    return True  # 验签通过
 ```
+
+### 公钥管理
+
+- 收钱吧 RSA 公钥由服务商平台获取，应安全存储
+- 建议使用配置文件或密钥管理服务（如 AWS KMS、Vault）管理公钥
+- 公钥更换时需要及时更新，否则验签将失败
 
 ## 回调响应
 
@@ -109,13 +128,16 @@ success
 
 ## 生成规则
 
-当生成回调处理代码时，必须包含：
+当生成回调处理代码时，**必须**包含以下全部内容（缺一不可）：
 1. HTTP POST 接口接收回调
-2. 签名验证逻辑
-3. 幂等处理（防重复）
-4. 订单状态更新逻辑
-5. 返回 200 响应
-6. 异常处理与日志记录
+2. **RSA SHA256WithRSA 签名验证逻辑**（不可省略，不可留空待实现）
+3. 验签失败立即返回 403，不处理业务
+4. 幂等处理（防重复）
+5. 订单状态更新逻辑
+6. 返回 `success` 文本响应
+7. 异常处理与日志记录
+
+> ⚠️ 签名验证是防止伪造回调导致资金风险的最后一道防线。生成代码时**禁止**将验签留空待实现或标记为可选项。
 
 ## 代码示例
 

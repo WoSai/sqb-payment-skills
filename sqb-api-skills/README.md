@@ -1,17 +1,31 @@
 # 收钱吧后端技能包（sqb-api-skills）
 
-本目录包含收钱吧 B扫C（付款码支付）场景的后端 API 对接技能。
+本目录包含收钱吧支付场景的后端 API 对接技能，覆盖 B扫C（付款码支付）和 C扫B（预下单）两种场景。
 
 ## 技能列表
 
 | 技能 | 说明 | 触发词示例 |
 |---|---|---|
 | [sqb-activate](./sqb-activate/) | 终端激活 | "收钱吧激活"、"终端激活" |
-| [sqb-checkin](./sqb-checkin/) | 终端签到 | "收钱吧签到"、"终端签到" |
-| [sqb-pay](./sqb-pay/) | 付款码支付 | "收钱吧支付"、"付款码支付"、"B扫C" |
+| [sqb-checkin](./sqb-checkin/) | 终端签到（含密钥轮换容灾） | "收钱吧签到"、"终端签到" |
+| [sqb-pay](./sqb-pay/) | B扫C 付款码支付 | "收钱吧支付"、"付款码支付"、"B扫C" |
+| [sqb-precreate](./sqb-precreate/) | C扫B 预下单（二维码支付） | "收钱吧预下单"、"C扫B"、"二维码支付" |
 | [sqb-query](./sqb-query/) | 订单查询 | "收钱吧查询"、"订单查询" |
-| [sqb-refund](./sqb-refund/) | 退款 | "收钱吧退款"、"订单退款" |
-| [sqb-notify](./sqb-notify/) | 回调通知 | "收钱吧回调"、"支付通知" |
+| [sqb-refund](./sqb-refund/) | 退款（支持部分退款） | "收钱吧退款"、"订单退款"、"部分退款" |
+| [sqb-cancel](./sqb-cancel/) | 撤单/冲正 | "收钱吧撤单"、"冲正"、"cancel" |
+| [sqb-notify](./sqb-notify/) | 回调通知（RSA 验签） | "收钱吧回调"、"支付通知" |
+
+## 共享工具类
+
+`shared-reference/` 目录包含跨 skill 共享的核心代码模板：
+
+| 文件 | 说明 | 被引用的 skill |
+|---|---|---|
+| `SqbSignUtil` / `sqb_sign_util.py` | MD5 签名工具 | 全部 |
+| `SqbStatusUtil` / `sqb_status_util.py` | 三层状态判定 | pay, precreate, query, refund, cancel |
+| `SqbPollingUtil` / `sqb_polling_util.py` | 参数化轮询框架 | pay, precreate, query |
+
+> 生成代码时直接引用这些共享实现，不要自行重新编写。
 
 ## 通用规范
 
@@ -55,10 +69,10 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 - 非 `200`：通信失败（如签名错误、参数缺失等）
 
 **biz_response.result_code**（业务级别）：
-- `PAY_SUCCESS` / `PAY_FAIL` / `PAY_IN_PROGRESS` / `REFUND_SUCCESS` 等
+- `PAY_SUCCESS` / `PAY_FAIL` / `PAY_IN_PROGRESS` / `PRECREATE_SUCCESS` / `REFUND_SUCCESS` / `CANCEL_SUCCESS` 等
 
 ### 推荐调用顺序
 
 ```
-sqb-activate → sqb-checkin → sqb-pay → sqb-query → sqb-refund
+sqb-activate → sqb-checkin → sqb-pay/sqb-precreate → sqb-query → sqb-refund/sqb-cancel
 ```

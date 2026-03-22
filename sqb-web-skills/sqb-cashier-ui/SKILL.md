@@ -1,6 +1,9 @@
 ---
 name: sqb-cashier-ui
-description: "[前端项目使用]收钱吧收银台前端UI组件技能。用于生成B扫C收银台界面，包含金额输入、扫码支付、状态展示等完整交互。当用户提到收银台界面、收银UI、cashier UI、POS界面、收款界面时触发。"
+description: "[前端项目使用]收钱吧收银台前端UI组件技能。用于构建扫码收银的前端界面。当用户提到收银台界面、收银UI、cashier UI、POS界面时触发。"
+version: "1.1"
+tags: [frontend, cashier, ui, pos]
+globs: ["**/*.vue", "**/*.tsx", "**/*.jsx", "**/*.html"]
 ---
 
 # 收钱吧收银台 UI 组件
@@ -13,6 +16,9 @@ description: "[前端项目使用]收钱吧收银台前端UI组件技能。用�
 - POS界面
 - 收款界面
 - 收银台组件
+- POS component
+- 收款界面组件
+- barcode scanner UI
 
 ## 概述
 
@@ -163,8 +169,14 @@ function fenToYuan(fen) {
 4. 超时处理对话框
 5. 响应式布局（适配不同屏幕）
 6. 基础样式（可用 Tailwind CSS 或纯 CSS）
+7. 根据用户项目的技术栈选择合适的框架变体：
+   - **Vue 项目** → 参考 `CashierApp.vue`
+   - **React 项目** → 参考 `CashierApp.tsx`
+   - **无框架 / 简易 POS 终端 / 快速原型** → 参考 `cashier-app.html`
 
 ## 代码示例
 
 见 `reference/` 目录：
 - `CashierApp.vue` — Vue3 单文件组件完整实现
+- `CashierApp.tsx` — React + TypeScript 组件完整实现（CSS-in-JS，自包含）
+- `cashier-app.html` — 零依赖单文件 HTML 实现（vanilla JS，可直接在浏览器打开）

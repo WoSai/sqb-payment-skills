@@ -1,6 +1,9 @@
 ---
 name: sqb-checkin
 description: "[后端项目使用]收钱吧终端签到接口技能。用于保持终端活跃并更新terminal_key。当用户提到收钱吧签到、终端签到、terminal checkin、刷新密钥时触发。"
+version: "1.1"
+tags: [payment, terminal, checkin, key-rotation]
+globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 ---
 
 # 收钱吧终端签到接口
@@ -13,6 +16,10 @@ description: "[后端项目使用]收钱吧终端签到接口技能。用于保�
 - 刷新密钥
 - key 更新
 - sqb-checkin
+- terminal check-in
+- /terminal/checkin
+- 密钥刷新
+- 密钥轮换
 
 ## 概述
 
@@ -125,14 +132,39 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 | Content-Type | `application/json; charset=utf-8` |
 | API 域名 | `https://vsi-api.shouqianba.com` |
 
+## 密钥轮换容灾逻辑（必须编码为代码模板）
+
+签到涉及密钥更新，网络异常时可能导致本地和服务端密钥不一致。**以下容灾流程必须完整实现**：
+
+```
+1. 签到前：将当前 terminal_key 持久化到 old_terminal_key 字段（备份）
+2. 发起签到请求
+3. 收到成功响应（TERMINAL_CHECKIN_SUCCESS）：
+   a. 将新 terminal_key 写入持久化存储
+   b. 保留 old_terminal_key 作为备份（双 key 机制期间可用）
+4. 网络异常 / 超时（未收到响应）：
+   a. 用旧 key 重试签到（第一次重试）
+   b. 如果收到 ILLEGAL_SIGN 错误：说明服务端已更新 key，旧 key 失效
+   c. 用旧 key 再重试一次（第二次重试，利用双 key 机制窗口）
+5. 两次重试都失败：
+   a. 记录告警日志（包含 terminal_sn、失败原因、时间戳）
+   b. 标记终端为"需人工介入"状态
+   c. 提示：可能需要重新激活终端（联系运营获取新激活码）
+6. 集群部署额外步骤：
+   a. 使用分布式锁确保单节点执行签到
+   b. 签到成功后同步新 key 到所有节点
+   c. 所有节点确认收到新 key 后才释放锁
+```
+
 ## 生成规则
 
 当生成签到接口代码时，**必须**包含：
-1. terminal 级别签名逻辑
+1. 签名逻辑引用 `shared-reference/SqbSignUtil`
 2. **签到成功后更新 terminal_key 的逻辑**（核心）
-3. 密钥持久化更新逻辑
-4. 签到失败的异常处理（含重新激活提示）
-5. 建议包含定时签到的调度逻辑
+3. **完整的密钥轮换容灾逻辑**（签到前备份、失败重试、告警）
+4. 密钥持久化更新逻辑
+5. 签到失败的异常处理（含重新激活提示）
+6. 建议包含定时签到的调度逻辑
 
 ## 代码示例
 

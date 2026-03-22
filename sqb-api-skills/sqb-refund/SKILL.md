@@ -1,6 +1,9 @@
 ---
 name: sqb-refund
 description: "[后端项目使用]收钱吧退款接口技能。用于对已支付订单进行全额或部分退款。当用户提到收钱吧退款、订单退款、refund、退钱、/refund时触发。"
+version: "1.1"
+tags: [payment, refund, partial-refund]
+globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 ---
 
 # 收钱吧退款接口
@@ -14,6 +17,9 @@ description: "[后端项目使用]收钱吧退款接口技能。用于对已支�
 - /refund
 - 部分退款
 - 全额退款
+- /upay/v2/refund
+- partial refund
+- 退款接口
 
 ## 概述
 
@@ -118,12 +124,43 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 | `PARTIAL_REFUNDED` | 部分退款成功 |
 | `REFUND_ERROR` | 退款异常，需查询确认 |
 
-## 部分退款
+## 部分退款（关键场景）
+
+### 基本规则
 
 - 退款金额可小于原订单金额，实现部分退款
 - 多次部分退款的累计金额不能超过原订单金额
 - 部分退款后 order_status 变为 `PARTIAL_REFUNDED`
 - 全额退款后 order_status 变为 `REFUNDED`
+- 退款无次数限制，直到可退金额为 0
+
+### 部分退款安全流程
+
+```
+1. 查询原始订单（sqb-query），获取 total_amount 和 net_amount
+2. 计算可退余额：refundable = net_amount（net_amount = total_amount - 已退款金额）
+3. 校验本次退款金额 ≤ refundable，否则拒绝
+4. 生成唯一 refund_request_no（建议格式：REF + 日期 + 原订单号 + 序号）
+5. 发起退款请求
+6. 退款结果判定（REFUND_SUCCESS / REFUND_IN_PROGRESS / REFUND_FAIL）
+7. 若为 REFUND_IN_PROGRESS，轮询查询确认最终退款状态
+8. 退款成功后再次查询订单，确认 order_status 和 net_amount 更新正确
+```
+
+### 退款状态机
+
+```
+PAID → (部分退款) → PARTIAL_REFUNDED → (继续退款) → PARTIAL_REFUNDED → (退完) → REFUNDED
+```
+
+### refund_request_no 唯一性管理
+
+多次部分退款时，每次必须使用不同的 `refund_request_no`。建议格式：
+
+```
+REF{原订单号}_{序号}
+例如：REF20230615143052001_01, REF20230615143052001_02
+```
 
 ## 常见退款失败原因
 
@@ -145,12 +182,14 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 
 ## 生成规则
 
-当生成退款接口代码时，必须包含：
-1. terminal 级别签名逻辑
+当生成退款接口代码时，**必须**包含：
+1. 签名逻辑引用 `shared-reference/SqbSignUtil`，不要自行编写签名实现
 2. refund_request_no 唯一性生成逻辑
-3. 退款金额校验（不超过可退金额）
-4. 退款结果判定（含异步轮询）
+3. **部分退款时的累计金额校验**（先查询 net_amount，计算可退余额，累计退款不超过原始金额）
+4. 退款结果判定（含异步轮询确认 REFUND_SUCCESS）
 5. 退款失败的错误处理
+6. **在类/模块级别注释中标注**：`⚠️ 警告：收钱吧没有沙盒环境，此代码将发起真实退款`
+7. **测试用例模板中默认包含退款清理说明**
 
 ## 代码示例
 
