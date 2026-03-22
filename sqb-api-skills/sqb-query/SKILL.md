@@ -1,6 +1,9 @@
 ---
 name: sqb-query
 description: "[后端项目使用]收钱吧订单查询接口技能。用于查询订单实时状态和支付结果轮询。当用户提到收钱吧查询、订单查询、交易查询、query order、/query时触发。"
+version: "1.1"
+tags: [payment, query, polling, order-status]
+globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 ---
 
 # 收钱吧订单查询接口
@@ -14,6 +17,9 @@ description: "[后端项目使用]收钱吧订单查询接口技能。用于查�
 - /query
 - 查询订单状态
 - 轮询
+- /upay/v2/query
+- order status
+- 支付结果查询
 
 ## 概述
 
@@ -153,12 +159,13 @@ while True:
 
 ## 生成规则
 
-当生成查询接口代码时，必须包含：
-1. terminal 级别签名逻辑
+当生成查询接口代码时，**必须**包含：
+1. 签名逻辑引用 `shared-reference/SqbSignUtil`，不要自行编写签名实现
 2. 支持 sn 和 client_sn 两种查询方式
-3. 订单状态的最终/非最终状态判定
-4. 当用于轮询时，包含完整的轮询循环逻辑
+3. 订单状态判定引用 `shared-reference/SqbStatusUtil`（最终/非最终状态）
+4. 当用于轮询时，引用 `shared-reference/SqbPollingUtil` 的轮询框架
 5. 超时处理机制
+6. **在类/模块级别注释中标注**：`⚠️ 警告：收钱吧没有沙盒环境，此代码查询的是真实交易`
 
 ## 代码示例
 

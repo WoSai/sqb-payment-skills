@@ -1,6 +1,9 @@
 ---
 name: sqb-pay
 description: "[后端项目使用]收钱吧B扫C付款码支付接口技能。用于商户扫描顾客付款码完成收款。当用户提到收钱吧支付、付款码支付、扫码收款、B扫C、shouqianba pay、/pay时触发。"
+version: "1.1"
+tags: [payment, barcode, b2c, pay]
+globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 ---
 
 # 收钱吧付款码支付接口
@@ -15,6 +18,9 @@ description: "[后端项目使用]收钱吧B扫C付款码支付接口技能。�
 - /pay
 - 被扫支付
 - barcode payment
+- /upay/v2/pay
+- B2C payment
+- barcode pay
 
 ## 概述
 
@@ -254,12 +260,14 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 ## 生成规则
 
 当生成付款码支付代码时，**必须**包含：
-1. 正确的签名计算逻辑（MD5(body + terminal_key)）
+1. 签名逻辑引用 `shared-reference/SqbSignUtil`，不要自行编写签名实现
 2. Authorization 头的正确格式（terminal_sn + 空格 + sign）
-3. 三层响应状态判定逻辑
-4. 非最终状态下的自动轮询机制
+3. 三层响应状态判定引用 `shared-reference/SqbStatusUtil`
+4. 非最终状态下的自动轮询机制，引用 `shared-reference/SqbPollingUtil`（PAY_POLLING_CONFIG）
 5. client_sn 全局唯一性保证
 6. 金额单位为分的提醒注释
+7. **在类/模块级别注释中标注**：`⚠️ 警告：收钱吧没有沙盒环境，此代码将发起真实交易，测试完成后务必退款`
+8. **测试用例模板中默认包含退款清理步骤**
 
 **可选但建议**包含：
 - 有密支付的等待提示
