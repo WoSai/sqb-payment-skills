@@ -65,10 +65,6 @@ cp -r sqb-api-skills/ your-project/
 
 **验证**：在 Cursor Chat 中输入 "收钱吧退款"，应生成包含退款金额校验和异步轮询的代码。
 
-### Trae
-
-将 `sqb-api-skills/` 目录添加到 Trae 工作区的 skills 目录中。
-
 ### OpenClaw / Codex
 
 将各 SKILL.md 文件添加到项目上下文或 system prompt 中。AI 工具会自动识别触发词并引用 reference 代码生成实现。
