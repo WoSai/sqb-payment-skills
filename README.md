@@ -1,6 +1,6 @@
 # 收钱吧支付 Skills（shouqianba-payment-skills）
 
-> 将收钱吧支付 API 对接知识封装为 AI Agent 可消费的 SKILL.md 格式，让 Claude Code / Cursor / Trae / OpenClaw / Codex 等 AI 编码助手通过自然语言指令自动生成符合规范的对接代码。
+> 将收钱吧支付 API 对接知识封装为 AI Agent 可消费的 SKILL.md 格式，让 Claude Code / Cursor / OpenClaw / Codex 等 AI 编码助手通过自然语言指令自动生成符合规范的对接代码。
 
 ## 适用场景
 
