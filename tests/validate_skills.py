@@ -16,6 +16,9 @@
 11. YAML frontmatter 完整性 —— 检查 version、tags、globs 字段
 12. 触发词数量检查 —— 每个 SKILL.md 至少有 6 个触发词
 13. 共享工具类完整性 —— shared-reference 包含所有必要文件
+14. 模块化生成章节检查 —— 8 个接口 skill 包含模块化生成章节
+15. 生成模式章节检查 —— 8 个接口 skill 包含生成模式说明
+16. 跨接口共享模块独立性 —— 4 个共享模块 skill 独立可用
 """
 
 import os
@@ -38,6 +41,11 @@ EXPECTED_API_SKILLS = [
     "sqb-refund",
     "sqb-cancel",
     "sqb-notify",
+    # 跨接口共享模块 skill
+    "sqb-signing",
+    "sqb-status-parsing",
+    "sqb-polling",
+    "sqb-callback-verify",
 ]
 
 # SKILL.md 必须包含的章节关键词
@@ -50,6 +58,11 @@ REQUIRED_SECTIONS = {
     "sqb-refund": ["退款", "refund_amount", "refund_request_no", "/upay/v2/refund"],
     "sqb-cancel": ["撤单", "terminal_sn", "/upay/v2/cancel"],
     "sqb-notify": ["回调", "notify_url", "验签"],
+    # 跨接口共享模块 skill
+    "sqb-signing": ["MD5", "签名", "Authorization", "vendor_sn", "terminal_sn"],
+    "sqb-status-parsing": ["三层", "result_code", "order_status", "最终状态"],
+    "sqb-polling": ["轮询", "PAY_POLLING_CONFIG", "PRECREATE_POLLING_CONFIG", "超时"],
+    "sqb-callback-verify": ["RSA", "SHA256WithRSA", "验签", "公钥"],
 }
 
 # API 路径映射
@@ -389,8 +402,8 @@ def test_trigger_keywords_count(result):
         if content is None:
             continue
 
-        # 查找引导词章节中的列表项
-        trigger_match = re.search(r"## 引导词\s*\n((?:\s*-\s*.+\n)+)", content)
+        # 查找引导词章节中的列表项（支持包含子标题的格式）
+        trigger_match = re.search(r"## 引导词\s*\n((?:(?:\s*-\s*.+|###\s+.+)\n)+)", content)
         if not trigger_match:
             result.fail(f"{skill}/SKILL.md 缺少引导词章节")
             continue
@@ -421,9 +434,122 @@ def test_shared_reference_completeness(result):
             result.fail(f"shared-reference/{fname} 不存在")
 
 
+# 接口类 skill（需要模块化生成章节）
+INTERFACE_SKILLS = [
+    "sqb-activate", "sqb-checkin", "sqb-pay", "sqb-precreate",
+    "sqb-query", "sqb-refund", "sqb-cancel", "sqb-notify",
+]
+
+# 各接口 skill 的模块化生成章节必须包含的关键词
+MODULAR_SKILLS = {
+    "sqb-pay": ["签名", "支付请求构建", "订单号生成"],
+    "sqb-precreate": ["签名", "预下单请求", "二维码"],
+    "sqb-refund": ["签名", "退款请求", "退款金额"],
+    "sqb-query": ["签名", "查询请求", "状态判定", "轮询"],
+    "sqb-cancel": ["签名", "撤单请求", "查询确认"],
+    "sqb-activate": ["vendor", "激活请求", "terminal_key"],
+    "sqb-checkin": ["签到请求", "密钥轮换", "容灾"],
+    "sqb-notify": ["RSA", "验签", "幂等", "分发"],
+}
+
+# 跨接口共享模块 skill
+CROSS_CUTTING_SKILLS = ["sqb-signing", "sqb-status-parsing", "sqb-polling", "sqb-callback-verify"]
+
+
+def test_module_sections(result):
+    """测试 14: 模块化生成章节检查"""
+    print("\n[测试 14] 模块化生成章节检查")
+
+    for skill, keywords in MODULAR_SKILLS.items():
+        content = _read_skill_md(skill)
+        if content is None:
+            result.fail(f"{skill}/SKILL.md 不存在")
+            continue
+
+        if "## 模块化生成" not in content:
+            result.fail(f"{skill}/SKILL.md 缺少 ## 模块化生成 章节")
+            continue
+
+        # 提取模块化生成章节内容
+        module_section = content.split("## 模块化生成", 1)[1]
+        # 截取到下一个 ## 标题或文件末尾
+        next_section = re.search(r"\n## [^#]", module_section)
+        if next_section:
+            module_section = module_section[:next_section.start()]
+
+        missing = [kw for kw in keywords if kw not in module_section]
+        if not missing:
+            result.ok(f"{skill}/SKILL.md 模块化生成章节包含所有必要关键词")
+        else:
+            result.fail(f"{skill}/SKILL.md 模块化生成章节缺少关键词: {missing}")
+
+
+def test_generation_mode_section(result):
+    """测试 15: 生成模式章节检查"""
+    print("\n[测试 15] 生成模式章节检查（引导词分区）")
+
+    for skill in INTERFACE_SKILLS:
+        content = _read_skill_md(skill)
+        if content is None:
+            result.fail(f"{skill}/SKILL.md 不存在")
+            continue
+
+        has_full_flow = "### 完整流程" in content
+        has_module = "### 单独模块" in content
+
+        if has_full_flow and has_module:
+            result.ok(f"{skill}/SKILL.md 引导词包含完整流程和单独模块分区")
+        else:
+            missing = []
+            if not has_full_flow:
+                missing.append("### 完整流程")
+            if not has_module:
+                missing.append("### 单独模块")
+            result.fail(f"{skill}/SKILL.md 引导词缺少分区: {missing}")
+
+
+def test_cross_cutting_skill_independence(result):
+    """测试 16: 跨接口共享模块独立性"""
+    print("\n[测试 16] 跨接口共享模块独立性")
+
+    for skill in CROSS_CUTTING_SKILLS:
+        skill_dir = os.path.join(API_SKILLS_DIR, skill)
+        if not os.path.isdir(skill_dir):
+            result.fail(f"{skill}/ 目录不存在")
+            continue
+
+        # 检查 SKILL.md 存在
+        content = _read_skill_md(skill)
+        if content is None:
+            result.fail(f"{skill}/SKILL.md 不存在")
+            continue
+
+        result.ok(f"{skill}/SKILL.md 存在且可读")
+
+        # 检查 reference 目录有文件
+        ref_dir = os.path.join(skill_dir, "reference")
+        if not os.path.isdir(ref_dir):
+            result.fail(f"{skill}/reference/ 目录不存在")
+            continue
+
+        ref_files = os.listdir(ref_dir)
+        has_java = any(f.endswith(".java") for f in ref_files)
+        has_python = any(f.endswith(".py") for f in ref_files)
+
+        if has_java and has_python:
+            result.ok(f"{skill}/reference/ 包含 Java 和 Python 参考代码")
+        else:
+            missing = []
+            if not has_java:
+                missing.append("Java")
+            if not has_python:
+                missing.append("Python")
+            result.fail(f"{skill}/reference/ 缺少参考代码: {missing}")
+
+
 def main():
     print("=" * 60)
-    print("收钱吧支付 Skills 项目 —— 验证测试 v2")
+    print("收钱吧支付 Skills 项目 —— 验证测试 v3")
     print("=" * 60)
 
     result = TestResult()
@@ -441,6 +567,9 @@ def main():
     test_yaml_frontmatter(result)
     test_trigger_keywords_count(result)
     test_shared_reference_completeness(result)
+    test_module_sections(result)
+    test_generation_mode_section(result)
+    test_cross_cutting_skill_independence(result)
 
     success = result.summary()
     sys.exit(0 if success else 1)

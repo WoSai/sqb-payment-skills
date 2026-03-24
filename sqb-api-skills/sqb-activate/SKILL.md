@@ -10,6 +10,7 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 
 ## 引导词
 
+### 完整流程
 - 收钱吧激活
 - 终端激活
 - activate terminal
@@ -19,6 +20,11 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 - terminal activate
 - /terminal/activate
 - 设备激活
+
+### 单独模块
+- vendor签名 / vendor级别签名（→ 仅生成 vendor 签名模块）
+- 激活请求构建 / activate request（→ 仅生成激活请求模块）
+- terminal_key存储 / 密钥持久化（→ 仅生成密钥存储模块）
 
 ## 概述
 
@@ -151,6 +157,119 @@ Authorization: {vendor_sn} {MD5(request_body + vendor_key)}
 3. 响应解析，提取 terminal_sn 和 terminal_key
 4. terminal_key 的持久化存储逻辑（至少提供存储接口/占位）
 5. 错误处理（激活失败的重试或提示）
+
+## 模块化生成
+
+本技能支持单独生成以下模块。当用户 prompt 中包含模块关键词时，仅生成对应模块代码，不生成完整流程。无模块关键词时，按上方"生成规则"生成完整代码。
+
+### 模块：Vendor 级别签名
+
+**触发关键词**："vendor签名"、"vendor级别签名"、"vendor_sn签名"
+
+**生成规则**：
+1. 使用 vendor_sn + vendor_key（区别于其他接口的 terminal 签名）
+2. Authorization 头格式：`{vendor_sn} {MD5(body + vendor_key)}`
+3. 仅激活接口使用此签名方式
+
+**参考代码（Java）**：
+```java
+// Vendor 级别签名（仅激活接口使用）
+String bodyStr = mapper.writeValueAsString(body);
+String sign = SqbSignUtil.md5Sign(bodyStr, vendorKey);  // 使用 vendor_key
+String authorization = vendorSn + " " + sign;            // 使用 vendor_sn
+```
+
+**参考代码（Python）**：
+```python
+# Vendor 级别签名（仅激活接口使用）
+body_str = json.dumps(body, ensure_ascii=False)
+sign = md5_sign(body_str, vendor_key)  # 使用 vendor_key
+authorization = f"{vendor_sn} {sign}"   # 使用 vendor_sn
+```
+
+### 模块：激活请求构建
+
+**触发关键词**："激活请求构建"、"activate request"、"构建激活报文"
+
+**生成规则**：
+1. 构建 JSON 请求体，包含 app_id、code、device_id（必填），name、os_info（可选）
+2. 使用 vendor 级别签名
+3. POST 请求到 `/terminal/activate`
+4. ⚠️ 激活码一次性使用的注释
+5. ⚠️ device_id 唯一性的注释
+
+**参考代码（Java）**：
+```java
+// 激活请求构建
+ObjectNode body = mapper.createObjectNode();
+body.put("app_id", appId);
+body.put("code", activateCode);      // 一次性激活码
+body.put("device_id", deviceId);     // 同门店不同设备需不同 device_id
+body.put("name", terminalName);
+
+String bodyStr = mapper.writeValueAsString(body);
+String sign = SqbSignUtil.md5Sign(bodyStr, vendorKey);
+
+Request request = new Request.Builder()
+    .url("https://vsi-api.shouqianba.com/terminal/activate")
+    .addHeader("Authorization", vendorSn + " " + sign)
+    .addHeader("Content-Type", "application/json; charset=utf-8")
+    .post(RequestBody.create(bodyStr, JSON_TYPE))
+    .build();
+```
+
+**参考代码（Python）**：
+```python
+# 激活请求构建
+body = {
+    "app_id": app_id,
+    "code": activate_code,      # 一次性激活码
+    "device_id": device_id,     # 同门店不同设备需不同 device_id
+    "name": terminal_name,
+}
+body_str = json.dumps(body, ensure_ascii=False)
+sign = md5_sign(body_str, vendor_key)
+headers = {
+    "Authorization": f"{vendor_sn} {sign}",
+    "Content-Type": "application/json; charset=utf-8",
+}
+resp = requests.post(
+    "https://vsi-api.shouqianba.com/terminal/activate",
+    data=body_str.encode("utf-8"),
+    headers=headers,
+    timeout=30,
+)
+```
+
+### 模块：terminal_key 存储
+
+**触发关键词**："terminal_key存储"、"密钥持久化"、"终端密钥存储"
+
+**生成规则**：
+1. 从激活响应中提取 terminal_sn 和 terminal_key
+2. 持久化存储策略（数据库 / 配置文件 / 环境变量）
+3. 集群部署时的多节点同步考虑
+4. ⚠️ terminal_key 丢失只能重新激活的注释
+
+**参考代码（Java）**：
+```java
+// terminal_key 存储
+String terminalSn = data.get("terminal_sn").asText();
+String terminalKey = data.get("terminal_key").asText();
+// ⚠️ terminal_key 丢失后只能重新激活（需新激活码），务必安全持久化
+terminalKeyStore.save(terminalSn, terminalKey);
+log.info("终端激活成功，terminal_sn={}", terminalSn);
+```
+
+**参考代码（Python）**：
+```python
+# terminal_key 存储
+terminal_sn = data["terminal_sn"]
+terminal_key = data["terminal_key"]
+# ⚠️ terminal_key 丢失后只能重新激活（需新激活码），务必安全持久化
+save_terminal_key(terminal_sn, terminal_key)
+logger.info(f"终端激活成功，terminal_sn={terminal_sn}")
+```
 
 ## 代码示例
 

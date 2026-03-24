@@ -28,7 +28,11 @@ shouqianba-payment-skills/
 │   ├── sqb-query/                     # 订单查询
 │   ├── sqb-refund/                    # 退款（支持部分退款）
 │   ├── sqb-cancel/                    # 撤单/冲正
-│   └── sqb-notify/                    # 回调通知（RSA 验签）
+│   ├── sqb-notify/                    # 回调通知（RSA 验签）
+│   ├── sqb-signing/                   # [共享模块] MD5 请求签名
+│   ├── sqb-status-parsing/            # [共享模块] 三层状态判定
+│   ├── sqb-polling/                   # [共享模块] 参数化轮询框架
+│   └── sqb-callback-verify/           # [共享模块] RSA 回调验签
 ├── sqb-web-skills/                    # 前端技能包
 │   └── sqb-cashier-ui/               # 收银台 UI 组件
 │       ├── SKILL.md
@@ -110,6 +114,23 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 |---|---|---|---|
 | B扫C 付款码支付 | 0~60s 每 3s | 60s+ 每 10s | 120s |
 | C扫B 预下单 | 0~30s 每 2s | 30s+ 每 5s | 240s |
+
+## 模块化生成
+
+除了生成完整的接口对接代码外，每个 Skill 还支持**按模块单独生成**。例如：
+
+- "帮我生成收钱吧支付请求构建" → 仅生成 pay 请求构建模块
+- "帮我实现 MD5 签名工具" → 触发 sqb-signing 独立模块
+- "帮我写回调验签逻辑" → 仅生成 RSA 验签模块
+
+### 跨接口共享模块
+
+| 模块 Skill | 说明 |
+|---|---|
+| sqb-signing | MD5 签名工具（Authorization 头构建） |
+| sqb-status-parsing | 三层状态判定（result_code → biz_response → order_status） |
+| sqb-polling | 参数化轮询框架（支持 pay/precreate 不同策略） |
+| sqb-callback-verify | RSA SHA256WithRSA 回调验签 |
 
 ## 重要提醒
 

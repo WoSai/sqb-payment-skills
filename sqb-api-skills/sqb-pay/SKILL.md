@@ -10,6 +10,7 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 
 ## 引导词
 
+### 完整流程
 - 收钱吧支付
 - 付款码支付
 - 扫码收款
@@ -21,6 +22,11 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 - /upay/v2/pay
 - B2C payment
 - barcode pay
+
+### 单独模块
+- 支付请求构建 / pay request（→ 仅生成请求构建模块）
+- 订单号生成 / client_sn 生成（→ 仅生成 client_sn 模块）
+- 有密支付处理 / 密码支付（→ 仅生成有密支付处理模块）
 
 ## 概述
 
@@ -274,6 +280,131 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 - 超时处理
 - 日志记录
 - 异常重试
+
+## 模块化生成
+
+本技能支持单独生成以下模块。当用户 prompt 中包含模块关键词时，仅生成对应模块代码，不生成完整流程。无模块关键词时，按上方"生成规则"生成完整代码。
+
+> 签名、三层状态判定、轮询框架等跨接口共享模块请使用对应的独立 Skill（sqb-signing、sqb-status-parsing、sqb-polling）。
+
+### 模块：支付请求构建
+
+**触发关键词**："支付请求构建"、"pay request"、"发起支付请求"
+
+**生成规则**：
+1. 构建 JSON 请求体，包含 terminal_sn、client_sn、total_amount、dynamic_id、subject、operator
+2. 调用签名工具计算 Authorization 头
+3. POST 请求到 `/upay/v2/pay`，Content-Type: `application/json; charset=utf-8`
+4. 返回原始 JSON 响应
+5. ⚠️ 金额单位为分的注释
+6. ⚠️ 无沙盒环境警告
+
+**参考代码（Java）**：
+```java
+// 支付请求构建（需配合 SqbSignUtil 签名工具使用）
+ObjectNode body = mapper.createObjectNode();
+body.put("terminal_sn", terminalSn);
+body.put("client_sn", clientSn);
+body.put("total_amount", totalAmount);    // 单位：分（100 = 1元）
+body.put("dynamic_id", dynamicId);        // 扫码枪获取的付款码
+body.put("subject", subject);
+body.put("operator", operator);
+
+String bodyStr = mapper.writeValueAsString(body);
+String sign = SqbSignUtil.md5Sign(bodyStr, terminalKey);
+
+Request request = new Request.Builder()
+    .url("https://vsi-api.shouqianba.com/upay/v2/pay")
+    .addHeader("Authorization", terminalSn + " " + sign)
+    .addHeader("Content-Type", "application/json; charset=utf-8")
+    .post(RequestBody.create(bodyStr, JSON_TYPE))
+    .build();
+```
+
+**参考代码（Python）**：
+```python
+# 支付请求构建（需配合 sqb_sign_util 签名工具使用）
+body = {
+    "terminal_sn": terminal_sn,
+    "client_sn": client_sn,
+    "total_amount": total_amount,    # 单位：分（100 = 1元）
+    "dynamic_id": dynamic_id,        # 扫码枪获取的付款码
+    "subject": subject,
+    "operator": operator,
+}
+body_str = json.dumps(body, ensure_ascii=False)
+sign = md5_sign(body_str, terminal_key)
+headers = {
+    "Authorization": f"{terminal_sn} {sign}",
+    "Content-Type": "application/json; charset=utf-8",
+}
+resp = requests.post(
+    "https://vsi-api.shouqianba.com/upay/v2/pay",
+    data=body_str.encode("utf-8"),
+    headers=headers,
+    timeout=30,
+)
+```
+
+### 模块：订单号生成
+
+**触发关键词**："client_sn 生成"、"订单号生成"、"商户订单号"
+
+**生成规则**：
+1. 格式建议：门店编号 + yyyyMMddHHmmssSSS + 4 位随机数
+2. 必须全局唯一
+3. 支付失败后不可复用同一个 client_sn，必须生成新的
+
+**参考代码（Java）**：
+```java
+private String generateClientSn(String storeId) {
+    String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"));
+    int random = (int) (Math.random() * 10000);
+    return storeId + timestamp + String.format("%04d", random);
+}
+```
+
+**参考代码（Python）**：
+```python
+import random
+from datetime import datetime
+
+def generate_client_sn(store_id: str = "") -> str:
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")[:17]
+    rand = random.randint(0, 9999)
+    return f"{store_id}{timestamp}{rand:04d}"
+```
+
+### 模块：有密支付处理
+
+**触发关键词**："有密支付"、"密码支付"、"等待输入密码"
+
+**生成规则**：
+1. 识别支付响应中的 PAY_IN_PROGRESS 状态
+2. 前端/收银台提示"等待顾客输入密码"
+3. 持续轮询等待最终结果（调用 sqb-query）
+4. 超时后提示收银员人工确认
+
+**参考代码（Java）**：
+```java
+// 有密支付处理：识别 PAY_IN_PROGRESS 并提示等待
+if ("PAY_IN_PROGRESS".equals(bizResultCode)) {
+    System.out.println("⏳ 等待顾客输入密码...");
+    // 启动轮询查询，使用 PAY_POLLING_CONFIG
+    // PollingResult result = SqbPollingUtil.pollUntilFinal(
+    //     () -> queryOrderStatus(clientSn), PAY_POLLING_CONFIG, null);
+}
+```
+
+**参考代码（Python）**：
+```python
+# 有密支付处理：识别 PAY_IN_PROGRESS 并提示等待
+if biz_result_code == "PAY_IN_PROGRESS":
+    print("⏳ 等待顾客输入密码...")
+    # 启动轮询查询，使用 PAY_POLLING_CONFIG
+    # result = poll_until_final(
+    #     query_fn=lambda: query_order(client_sn), config=PAY_POLLING_CONFIG)
+```
 
 ## 代码示例
 

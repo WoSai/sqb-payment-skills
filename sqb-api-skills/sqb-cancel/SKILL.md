@@ -10,6 +10,7 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 
 ## 引导词
 
+### 完整流程
 - 收钱吧撤单
 - 冲正
 - cancel
@@ -18,6 +19,11 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 - void
 - 撤单接口
 - /cancel
+
+### 单独模块
+- 撤单请求构建 / cancel request（→ 仅生成撤单请求模块）
+- 撤单结果判定 / cancel结果解析（→ 仅生成撤单结果判定模块）
+- 撤单后查询确认 / cancel查询确认（→ 仅生成查询确认模块）
 
 ## 概述
 
@@ -211,6 +217,144 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 - 已部分退款订单的拦截逻辑
 - 超时处理
 - 日志记录
+
+## 模块化生成
+
+本技能支持单独生成以下模块。当用户 prompt 中包含模块关键词时，仅生成对应模块代码，不生成完整流程。无模块关键词时，按上方"生成规则"生成完整代码。
+
+> 签名等跨接口共享模块请使用对应的独立 Skill（sqb-signing）。
+
+### 模块：撤单请求构建
+
+**触发关键词**："撤单请求构建"、"cancel request"、"构建撤单报文"
+
+**生成规则**：
+1. 构建 JSON 请求体，包含 terminal_sn 和 sn/client_sn
+2. 调用签名工具计算 Authorization 头
+3. POST 请求到 `/upay/v2/cancel`
+4. ⚠️ 仅限当天订单的注释
+5. ⚠️ 已部分退款的订单不可撤单的注释
+6. ⚠️ 无沙盒环境警告
+
+**参考代码（Java）**：
+```java
+// 撤单请求构建（需配合 SqbSignUtil 签名工具使用）
+ObjectNode body = mapper.createObjectNode();
+body.put("terminal_sn", terminalSn);
+body.put("sn", sn);  // 推荐使用 sn，也可用 client_sn
+
+String bodyStr = mapper.writeValueAsString(body);
+String sign = SqbSignUtil.md5Sign(bodyStr, terminalKey);
+
+Request request = new Request.Builder()
+    .url("https://vsi-api.shouqianba.com/upay/v2/cancel")
+    .addHeader("Authorization", terminalSn + " " + sign)
+    .addHeader("Content-Type", "application/json; charset=utf-8")
+    .post(RequestBody.create(bodyStr, JSON_TYPE))
+    .build();
+```
+
+**参考代码（Python）**：
+```python
+# 撤单请求构建（需配合 sqb_sign_util 签名工具使用）
+body = {
+    "terminal_sn": terminal_sn,
+    "sn": sn,  # 推荐使用 sn，也可用 client_sn
+}
+body_str = json.dumps(body, ensure_ascii=False)
+sign = md5_sign(body_str, terminal_key)
+headers = {
+    "Authorization": f"{terminal_sn} {sign}",
+    "Content-Type": "application/json; charset=utf-8",
+}
+resp = requests.post(
+    "https://vsi-api.shouqianba.com/upay/v2/cancel",
+    data=body_str.encode("utf-8"),
+    headers=headers,
+    timeout=30,
+)
+```
+
+### 模块：撤单结果判定
+
+**触发关键词**："撤单结果判定"、"cancel结果解析"、"CANCEL_ERROR处理"
+
+**生成规则**：
+1. 判定 biz_response.result_code 四种结果：CANCEL_SUCCESS、CANCEL_ERROR、CANCEL_ABORT_SUCCESS、CANCEL_ABORT_ERROR
+2. CANCEL_SUCCESS / CANCEL_ABORT_SUCCESS → 撤单成功
+3. CANCEL_ERROR / CANCEL_ABORT_ERROR → 结果不确定，必须查询确认
+4. 禁止将不确定状态直接判定为成功或失败
+
+**参考代码（Java）**：
+```java
+// 撤单结果判定
+String bizResultCode = bizResponse.get("result_code").asText();
+switch (bizResultCode) {
+    case "CANCEL_SUCCESS":
+    case "CANCEL_ABORT_SUCCESS":
+        log.info("撤单成功: sn={}", sn);
+        return CancelResult.SUCCESS;
+    case "CANCEL_ERROR":
+    case "CANCEL_ABORT_ERROR":
+        log.warn("撤单结果不确定，需查询确认: sn={}", sn);
+        return CancelResult.NEED_QUERY;  // 必须调用查询接口确认
+    default:
+        log.error("未知撤单结果码: {}", bizResultCode);
+        return CancelResult.UNKNOWN;
+}
+```
+
+**参考代码（Python）**：
+```python
+# 撤单结果判定
+biz_result_code = biz_response["result_code"]
+if biz_result_code in ("CANCEL_SUCCESS", "CANCEL_ABORT_SUCCESS"):
+    logger.info(f"撤单成功: sn={sn}")
+    return "SUCCESS"
+elif biz_result_code in ("CANCEL_ERROR", "CANCEL_ABORT_ERROR"):
+    logger.warning(f"撤单结果不确定，需查询确认: sn={sn}")
+    return "NEED_QUERY"  # 必须调用查询接口确认
+```
+
+### 模块：撤单后查询确认
+
+**触发关键词**："撤单后查询"、"cancel查询确认"、"撤单确认流程"
+
+**生成规则**：
+1. 撤单返回 CANCEL_ERROR/CANCEL_ABORT_ERROR 后，调用查询接口
+2. 根据 order_status 判定：PAY_CANCELED → 撤单已生效；PAID → 撤单未生效
+3. 仍为非最终状态时继续轮询
+4. 超时后提示人工介入
+
+**参考代码（Java）**：
+```java
+// 撤单后查询确认
+if (cancelResult == CancelResult.NEED_QUERY) {
+    String orderStatus = queryOrderStatus(sn);
+    if ("PAY_CANCELED".equals(orderStatus) || "CANCELED".equals(orderStatus)) {
+        log.info("撤单已生效: sn={}", sn);
+    } else if ("PAID".equals(orderStatus)) {
+        log.warn("撤单未生效，订单仍为已支付: sn={}", sn);
+        // 可重新发起撤单或走退款流程
+    } else {
+        log.warn("订单状态不确定，继续轮询: status={}", orderStatus);
+    }
+}
+```
+
+**参考代码（Python）**：
+```python
+# 撤单后查询确认
+if cancel_result == "NEED_QUERY":
+    order_status = query_order_status(sn)
+    if order_status in ("PAY_CANCELED", "CANCELED"):
+        logger.info(f"撤单已生效: sn={sn}")
+    elif order_status == "PAID":
+        logger.warning(f"撤单未生效，订单仍为已支付: sn={sn}")
+        # 可重新发起撤单或走退款流程
+    else:
+        logger.warning(f"订单状态不确定，继续轮询: status={order_status}")
+```
 
 ## 代码示例
 

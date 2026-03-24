@@ -15,6 +15,26 @@
 | [sqb-cancel](./sqb-cancel/) | 撤单/冲正 | "收钱吧撤单"、"冲正"、"cancel" |
 | [sqb-notify](./sqb-notify/) | 回调通知（RSA 验签） | "收钱吧回调"、"支付通知" |
 
+## 跨接口共享模块 Skill
+
+以下独立 Skill 封装了跨接口通用的功能模块，可单独触发生成对应模块代码：
+
+| 技能 | 说明 | 触发词示例 |
+|---|---|---|
+| [sqb-signing](./sqb-signing/) | MD5 请求签名工具 | "收钱吧签名"、"MD5签名"、"Authorization头" |
+| [sqb-status-parsing](./sqb-status-parsing/) | 三层状态判定 | "三层状态判定"、"状态解析"、"order_status判定" |
+| [sqb-polling](./sqb-polling/) | 参数化轮询框架 | "轮询框架"、"polling"、"轮询策略" |
+| [sqb-callback-verify](./sqb-callback-verify/) | RSA 回调验签 | "RSA验签"、"回调验签"、"公钥验签" |
+
+## 模块化生成
+
+每个接口 Skill 支持两种生成模式：
+
+1. **完整流程模式**（默认）：用户请求完整功能时，生成端到端的实现代码
+2. **模块化模式**：用户仅请求特定模块时（如"支付请求构建"、"退款金额校验"），只生成对应模块代码
+
+模式由用户提示词自动判定。各 SKILL.md 的「引导词」章节中，「完整流程」子节触发完整生成，「单独模块」子节触发模块化生成。
+
 ## 共享工具类
 
 `shared-reference/` 目录包含跨 skill 共享的核心代码模板：
