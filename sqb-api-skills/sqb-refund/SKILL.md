@@ -10,6 +10,7 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 
 ## 引导词
 
+### 完整流程
 - 收钱吧退款
 - 订单退款
 - refund
@@ -20,6 +21,11 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 - /upay/v2/refund
 - partial refund
 - 退款接口
+
+### 单独模块
+- 退款请求构建 / refund request（→ 仅生成退款请求模块）
+- 退款金额校验 / 累计退款 / 部分退款校验（→ 仅生成退款校验模块）
+- 退款号生成 / refund_request_no（→ 仅生成退款号模块）
 
 ## 概述
 
@@ -190,6 +196,123 @@ REF{原订单号}_{序号}
 5. 退款失败的错误处理
 6. **在类/模块级别注释中标注**：`⚠️ 警告：收钱吧没有沙盒环境，此代码将发起真实退款`
 7. **测试用例模板中默认包含退款清理说明**
+
+## 模块化生成
+
+本技能支持单独生成以下模块。当用户 prompt 中包含模块关键词时，仅生成对应模块代码，不生成完整流程。
+
+> 签名等跨接口共享模块请使用对应的独立 Skill（sqb-signing）。
+
+### 模块：退款请求构建
+
+**触发关键词**："退款请求"、"refund request"、"发起退款"
+
+**生成规则**：
+1. 构建 JSON 请求体，包含 sn（或 client_sn）、refund_request_no、refund_amount、operator
+2. sn 和 client_sn 二选一，sn 优先
+3. 签名并 POST 到 `/upay/v2/refund`
+4. 支持全额退款和部分退款
+5. ⚠️ 金额单位为分
+
+**参考代码（Java）**：
+```java
+// 退款请求构建
+ObjectNode body = mapper.createObjectNode();
+body.put("sn", orderSn);                            // 收钱吧订单号（与 client_sn 二选一）
+body.put("refund_request_no", refundRequestNo);      // 退款请求号（必须唯一）
+body.put("refund_amount", refundAmount);             // 退款金额（单位：分）
+body.put("operator", operator);
+
+String bodyStr = mapper.writeValueAsString(body);
+String sign = SqbSignUtil.md5Sign(bodyStr, terminalKey);
+// POST to https://vsi-api.shouqianba.com/upay/v2/refund
+```
+
+**参考代码（Python）**：
+```python
+# 退款请求构建
+body = {
+    "sn": order_sn,                              # 收钱吧订单号（与 client_sn 二选一）
+    "refund_request_no": refund_request_no,       # 退款请求号（必须唯一）
+    "refund_amount": refund_amount,               # 退款金额（单位：分）
+    "operator": operator,
+}
+body_str = json.dumps(body, ensure_ascii=False)
+sign = md5_sign(body_str, terminal_key)
+# POST to https://vsi-api.shouqianba.com/upay/v2/refund
+```
+
+### 模块：退款金额校验
+
+**触发关键词**："退款校验"、"累计退款"、"部分退款校验"、"net_amount 校验"
+
+**生成规则**：
+1. 查询原始订单获取 net_amount（实收金额，扣除手续费后的金额）
+2. 累计已退款金额 + 本次退款金额 ≤ net_amount
+3. 部分退款场景需记录历史退款记录
+4. 金额单位为分，使用整数计算避免浮点精度问题
+
+**参考代码（Java）**：
+```java
+/**
+ * 退款金额校验：确保累计退款不超过实收金额
+ *
+ * @param netAmount         原始订单实收金额（分）
+ * @param alreadyRefunded   已退款累计金额（分）
+ * @param thisRefundAmount  本次退款金额（分）
+ */
+public boolean validateRefundAmount(long netAmount, long alreadyRefunded, long thisRefundAmount) {
+    if (thisRefundAmount <= 0) {
+        throw new IllegalArgumentException("退款金额必须大于 0");
+    }
+    if (alreadyRefunded + thisRefundAmount > netAmount) {
+        throw new IllegalArgumentException(
+            String.format("累计退款金额(%d + %d = %d分)超过实收金额(%d分)",
+                alreadyRefunded, thisRefundAmount, alreadyRefunded + thisRefundAmount, netAmount));
+    }
+    return true;
+}
+```
+
+**参考代码（Python）**：
+```python
+def validate_refund_amount(net_amount: int, already_refunded: int, this_refund: int) -> bool:
+    """退款金额校验：确保累计退款不超过实收金额（单位：分）"""
+    if this_refund <= 0:
+        raise ValueError("退款金额必须大于 0")
+    if already_refunded + this_refund > net_amount:
+        raise ValueError(
+            f"累计退款金额({already_refunded} + {this_refund} = {already_refunded + this_refund}分)"
+            f"超过实收金额({net_amount}分)")
+    return True
+```
+
+### 模块：退款号生成
+
+**触发关键词**："refund_request_no"、"退款单号"、"退款请求号"
+
+**生成规则**：
+1. 格式：REF + 时间戳 + UUID 前缀，全局唯一
+2. 同一笔退款重试时使用**相同**的 refund_request_no（幂等性）
+3. 不同退款请求使用不同的 refund_request_no
+
+**参考代码（Java）**：
+```java
+private String generateRefundRequestNo() {
+    return "REF" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"))
+        + UUID.randomUUID().toString().substring(0, 4);
+}
+```
+
+**参考代码（Python）**：
+```python
+import uuid
+from datetime import datetime
+
+def generate_refund_request_no() -> str:
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")[:17]
+    return f"REF{timestamp}{uuid.uuid4().hex[:4]}"
+```
 
 ## 代码示例
 

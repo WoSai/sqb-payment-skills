@@ -10,6 +10,7 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 
 ## 引导词
 
+### 完整流程
 - 收钱吧签到
 - 终端签到
 - terminal checkin
@@ -20,6 +21,11 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 - /terminal/checkin
 - 密钥刷新
 - 密钥轮换
+
+### 单独模块
+- 签到请求构建 / checkin request（→ 仅生成签到请求模块）
+- 密钥轮换逻辑 / key rotation（→ 仅生成密钥轮换模块）
+- 双key容灾 / 签到容灾机制（→ 仅生成容灾机制模块）
 
 ## 概述
 
@@ -165,6 +171,140 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 4. 密钥持久化更新逻辑
 5. 签到失败的异常处理（含重新激活提示）
 6. 建议包含定时签到的调度逻辑
+
+## 模块化生成
+
+本技能支持单独生成以下模块。当用户 prompt 中包含模块关键词时，仅生成对应模块代码，不生成完整流程。无模块关键词时，按上方"生成规则"生成完整代码。
+
+> 签名等跨接口共享模块请使用对应的独立 Skill（sqb-signing）。
+
+### 模块：签到请求构建
+
+**触发关键词**："签到请求构建"、"checkin request"、"构建签到报文"
+
+**生成规则**：
+1. 构建 JSON 请求体，包含 terminal_sn、device_id（必填）
+2. 使用 terminal 级别签名
+3. POST 请求到 `/terminal/checkin`
+
+**参考代码（Java）**：
+```java
+// 签到请求构建
+ObjectNode body = mapper.createObjectNode();
+body.put("terminal_sn", terminalSn);
+body.put("device_id", deviceId);
+
+String bodyStr = mapper.writeValueAsString(body);
+String sign = SqbSignUtil.md5Sign(bodyStr, terminalKey);
+
+Request request = new Request.Builder()
+    .url("https://vsi-api.shouqianba.com/terminal/checkin")
+    .addHeader("Authorization", terminalSn + " " + sign)
+    .addHeader("Content-Type", "application/json; charset=utf-8")
+    .post(RequestBody.create(bodyStr, JSON_TYPE))
+    .build();
+```
+
+**参考代码（Python）**：
+```python
+# 签到请求构建
+body = {
+    "terminal_sn": terminal_sn,
+    "device_id": device_id,
+}
+body_str = json.dumps(body, ensure_ascii=False)
+sign = md5_sign(body_str, terminal_key)
+headers = {
+    "Authorization": f"{terminal_sn} {sign}",
+    "Content-Type": "application/json; charset=utf-8",
+}
+resp = requests.post(
+    "https://vsi-api.shouqianba.com/terminal/checkin",
+    data=body_str.encode("utf-8"),
+    headers=headers,
+    timeout=30,
+)
+```
+
+### 模块：密钥轮换逻辑
+
+**触发关键词**："密钥轮换"、"key rotation"、"terminal_key更新"
+
+**生成规则**：
+1. 签到成功后，立即用新 terminal_key 替换旧 terminal_key
+2. 持久化新 key 到存储
+3. 集群部署时同步到所有节点
+
+**参考代码（Java）**：
+```java
+// 密钥轮换：签到成功后更新 terminal_key
+String newTerminalKey = data.get("terminal_key").asText();
+terminalKeyStore.save(terminalSn, newTerminalKey);
+log.info("签到成功，terminal_key 已更新: terminal_sn={}", terminalSn);
+// 集群部署时，需将新 key 同步到所有节点
+```
+
+**参考代码（Python）**：
+```python
+# 密钥轮换：签到成功后更新 terminal_key
+new_terminal_key = data["terminal_key"]
+save_terminal_key(terminal_sn, new_terminal_key)
+logger.info(f"签到成功，terminal_key 已更新: terminal_sn={terminal_sn}")
+# 集群部署时，需将新 key 同步到所有节点
+```
+
+### 模块：双 key 容灾机制
+
+**触发关键词**："双key容灾"、"签到容灾"、"ILLEGAL_SIGN处理"、"签到失败恢复"
+
+**生成规则**：
+1. 签到前备份当前 terminal_key 到 old_terminal_key
+2. 网络异常时，用旧 key 重试签到
+3. 收到 ILLEGAL_SIGN 错误时，说明服务端已更新 key
+4. 两次重试均失败时，标记需人工介入（重新激活）
+5. 利用收钱吧双 key 机制的容错窗口
+
+**参考代码（Java）**：
+```java
+// 双 key 容灾机制
+String oldKey = terminalKeyStore.get(terminalSn);
+terminalKeyStore.saveBackup(terminalSn, oldKey);  // 备份旧 key
+
+try {
+    CheckinResponse resp = doCheckin(terminalSn, oldKey);
+    terminalKeyStore.save(terminalSn, resp.getNewKey());  // 更新新 key
+} catch (TimeoutException e) {
+    // 第一次重试：用旧 key
+    try {
+        CheckinResponse resp = doCheckin(terminalSn, oldKey);
+        terminalKeyStore.save(terminalSn, resp.getNewKey());
+    } catch (IllegalSignException ex) {
+        // 旧 key 已失效，服务端已更新 → 需重新激活
+        log.error("签到容灾失败，需重新激活终端: terminal_sn={}", terminalSn);
+        markTerminalNeedsReactivation(terminalSn);
+    }
+}
+```
+
+**参考代码（Python）**：
+```python
+# 双 key 容灾机制
+old_key = get_terminal_key(terminal_sn)
+save_backup_key(terminal_sn, old_key)  # 备份旧 key
+
+try:
+    resp = do_checkin(terminal_sn, old_key)
+    save_terminal_key(terminal_sn, resp["terminal_key"])  # 更新新 key
+except TimeoutError:
+    # 第一次重试：用旧 key
+    try:
+        resp = do_checkin(terminal_sn, old_key)
+        save_terminal_key(terminal_sn, resp["terminal_key"])
+    except IllegalSignError:
+        # 旧 key 已失效，服务端已更新 → 需重新激活
+        logger.error(f"签到容灾失败，需重新激活终端: terminal_sn={terminal_sn}")
+        mark_terminal_needs_reactivation(terminal_sn)
+```
 
 ## 代码示例
 

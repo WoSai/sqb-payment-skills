@@ -10,6 +10,7 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 
 ## 引导词
 
+### 完整流程
 - 收钱吧预下单
 - C扫B
 - 二维码支付
@@ -18,6 +19,10 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 - 扫码付
 - 顾客扫码
 - 主扫支付
+
+### 单独模块
+- 预下单请求构建 / precreate request（→ 仅生成请求构建模块）
+- 二维码处理 / QR code / qr_code 提取（→ 仅生成二维码处理模块）
 
 ## 概述
 
@@ -273,6 +278,87 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 - 超时处理
 - 日志记录
 - 异常重试
+
+## 模块化生成
+
+本技能支持单独生成以下模块。当用户 prompt 中包含模块关键词时，仅生成对应模块代码，不生成完整流程。
+
+> 签名、三层状态判定、轮询框架等跨接口共享模块请使用对应的独立 Skill（sqb-signing、sqb-status-parsing、sqb-polling）。
+
+### 模块：预下单请求构建
+
+**触发关键词**："预下单请求"、"precreate request"、"C 扫 B 请求"
+
+**生成规则**：
+1. 构建 JSON 请求体，包含 terminal_sn、client_sn、total_amount、payway、subject、operator
+2. **payway 为必填参数**（不同于 pay 接口）：1=支付宝, 3=微信, 4=百度, 5=京东
+3. 调用签名工具计算 Authorization 头
+4. POST 请求到 `/upay/v2/precreate`
+5. 返回响应中的 qr_code 字段
+
+**参考代码（Java）**：
+```java
+// 预下单请求（payway 为必填参数）
+ObjectNode body = mapper.createObjectNode();
+body.put("terminal_sn", terminalSn);
+body.put("client_sn", clientSn);
+body.put("total_amount", totalAmount);    // 单位：分
+body.put("payway", payway);              // 必填：1=支付宝, 3=微信
+body.put("subject", subject);
+body.put("operator", operator);
+
+String bodyStr = mapper.writeValueAsString(body);
+String sign = SqbSignUtil.md5Sign(bodyStr, terminalKey);
+// POST to https://vsi-api.shouqianba.com/upay/v2/precreate
+```
+
+**参考代码（Python）**：
+```python
+# 预下单请求（payway 为必填参数）
+body = {
+    "terminal_sn": terminal_sn,
+    "client_sn": client_sn,
+    "total_amount": total_amount,    # 单位：分
+    "payway": payway,                # 必填：1=支付宝, 3=微信
+    "subject": subject,
+    "operator": operator,
+}
+body_str = json.dumps(body, ensure_ascii=False)
+sign = md5_sign(body_str, terminal_key)
+# POST to https://vsi-api.shouqianba.com/upay/v2/precreate
+```
+
+### 模块：二维码处理
+
+**触发关键词**："二维码提取"、"QR code"、"qr_code 渲染"、"生成二维码"
+
+**生成规则**：
+1. 从预下单响应的 `biz_response.data.qr_code` 字段提取二维码内容
+2. 使用 QR 库生成二维码图片或渲染到页面
+3. 注释提醒二维码有效期（通常几分钟），过期需重新预下单
+
+**参考代码（Java）**：
+```java
+// 从预下单响应提取二维码
+JsonNode data = response.path("biz_response").path("data");
+String qrCode = data.path("qr_code").asText();
+// 使用 ZXing 等库生成二维码图片
+// BitMatrix matrix = new QRCodeWriter().encode(qrCode, BarcodeFormat.QR_CODE, 300, 300);
+System.out.println("二维码内容: " + qrCode);
+// ⚠️ 二维码有有效期，过期需重新调用预下单接口
+```
+
+**参考代码（Python）**：
+```python
+# 从预下单响应提取二维码
+qr_code = response["biz_response"]["data"]["qr_code"]
+# 使用 qrcode 库生成二维码图片
+# import qrcode
+# img = qrcode.make(qr_code)
+# img.save("payment_qr.png")
+print(f"二维码内容: {qr_code}")
+# ⚠️ 二维码有有效期，过期需重新调用预下单接口
+```
 
 ## 代码示例
 
