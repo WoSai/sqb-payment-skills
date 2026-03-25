@@ -1,16 +1,26 @@
 ---
 name: sqb-activate
-description: "[后端项目使用]收钱吧终端激活接口技能。用于使用激活码获取terminal_sn和terminal_key。当用户提到收钱吧激活、终端激活、activate terminal、激活码、设备注册时触发。"
-version: "1.1"
-tags: [payment, terminal, activate]
+description: "[后端项目使用]收钱吧终端激活接口技能。用于生成终端激活的分层适配代码。当用户提到收钱吧激活、终端激活、activate terminal、激活码、设备注册时触发。"
+version: "2.0"
+tags: [payment, terminal, activate, adapter]
 globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 ---
 
 # 收钱吧终端激活接口
 
+## 分层定位
+
+完整流程生成时，本 skill 应输出：
+
+- `protocol/dto`：激活请求与响应 DTO
+- `protocol/security`：vendor 签名调用
+- `adapter/terminal`：`SqbTerminalActivateAdapter`
+- `bootstrap`：配置与终端激活入口骨架
+
 ## 引导词
 
 ### 完整流程
+
 - 收钱吧激活
 - 终端激活
 - activate terminal
@@ -22,20 +32,13 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 - 设备激活
 
 ### 单独模块
-- vendor签名 / vendor级别签名（→ 仅生成 vendor 签名模块）
-- 激活请求构建 / activate request（→ 仅生成激活请求模块）
-- terminal_key存储 / 密钥持久化（→ 仅生成密钥存储模块）
 
-## 概述
-
-终端激活是接入收钱吧的第一步。通过激活码（code）将一个设备注册为收钱吧终端，获取后续交易所需的 `terminal_sn` 和 `terminal_key`。
-
-## 前置条件
-
-- 已获取服务商凭证：`vendor_sn` 和 `vendor_key`
-- 已从收钱吧获取激活码（code），每个激活码绑定一个门店
-- API 域名：`https://vsi-api.shouqianba.com`
-- 收钱吧无官方 SDK，使用纯 HTTP API 对接，需引入 HTTP 客户端库和 JSON 库
+- vendor签名
+- vendor级别签名
+- 激活请求构建
+- activate request
+- terminal_key存储
+- 密钥持久化
 
 ## 接口说明
 
@@ -43,236 +46,53 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 |---|---|
 | 请求路径 | `/terminal/activate` |
 | 请求方法 | POST |
-| Content-Type | `application/json; charset=utf-8` |
-| API 域名 | `https://vsi-api.shouqianba.com` |
+| 签名 | `Authorization: {vendor_sn} {MD5(request_body + vendor_key)}` |
 
-## 签名方式
+## 核心参数
 
-激活接口使用 **vendor 级别签名**（与其他交易接口不同）：
+- `app_id`
+- `code`
+- `device_id`
+- `terminal_sn`
+- `terminal_key`
+- `vendor_sn`
 
-```
-Authorization: {vendor_sn} {MD5(request_body + vendor_key)}
-```
+## 完整流程生成
 
-> 注意：这是唯一使用 vendor_sn/vendor_key 签名的接口，其他接口均使用 terminal_sn/terminal_key。
+当用户要求完整接入时，生成内容至少包括：
 
-## 请求参数
+1. `ActivateRequest` / `ActivateResponse`
+2. 对 vendor 级别签名模块的引用
+3. `SqbTerminalActivateAdapter.activate(...)`
+4. `terminal_key` 持久化接口或存储占位
+5. `SqbConfig` 或等价配置骨架
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| app_id | string | Y | 应用 ID |
-| code | string | Y | 激活码 |
-| device_id | string | Y | 设备唯一标识，同门店不同设备需使用不同 device_id |
-| client_sn | string | N | 客户端编号 |
-| name | string | N | 终端名称 |
-| os_info | string | N | 操作系统信息 |
-| sdk_version | string | N | SDK 版本 |
+推荐输出目录：
 
-## 请求示例
-
-```json
-{
-    "app_id": "2019032019283301102",
-    "code": "11000200",
-    "device_id": "DEVICE_001",
-    "name": "收银台1号",
-    "os_info": "Windows 10"
-}
+```text
+protocol/dto/terminal/
+adapter/terminal/
+bootstrap/config/
 ```
 
-## 响应参数
-
-| 参数 | 说明 |
-|---|---|
-| terminal_sn | 终端序列号，后续交易签名使用 |
-| terminal_key | 终端密钥，后续交易签名使用，**必须持久化存储** |
-| terminal_name | 终端名称 |
-| merchant_sn | 商户序列号 |
-| store_sn | 门店序列号 |
-
-## 响应示例
-
-```json
-{
-    "result_code": "200",
-    "biz_response": {
-        "result_code": "ACTIVATE_SUCCESS",
-        "data": {
-            "terminal_sn": "10298371039",
-            "terminal_key": "68d499beda5f72116592f5c527465656",
-            "terminal_name": "收银台1号",
-            "merchant_sn": "20190123456",
-            "store_sn": "20190123456001"
-        }
-    }
-}
-```
-
-## 陷阱与注意事项
-
-### 1. 一个激活码只能激活一次
-激活码使用后即失效，重复使用会报错。如需重新激活，需要申请新的激活码。
-
-### 2. device_id 唯一性
-同一门店下如有多台设备，每台设备必须使用不同的 `device_id`，否则会覆盖之前的终端。
-
-### 3. terminal_key 必须持久化
-`terminal_key` 是后续所有交易签名的核心密钥：
-- 必须安全存储到数据库或配置文件
-- 集群部署时需在多节点间同步
-- 丢失后只能通过重新激活恢复
-
-### 4. 无沙盒环境
-激活后的终端对应真实商户和门店，所有交易都是真实的。
-
-## 架构设计
-
-```
-项目结构
-├── controller/
-│   └── SqbTerminalController      # 终端管理控制器
-├── service/
-│   └── SqbTerminalService         # 终端激活/签到业务逻辑
-├── model/
-│   ├── ActivateRequest            # 激活请求 DTO
-│   └── ActivateResponse           # 激活响应 DTO
-└── util/
-    └── SqbSignUtil                # 签名工具类（MD5）
-```
-
-## 实现步骤
-
-1. 创建签名工具类 `SqbSignUtil`，实现 `MD5(body + key)` 签名逻辑
-2. 创建激活请求 DTO `ActivateRequest`（app_id, code, device_id）
-3. 实现激活服务 `SqbTerminalService.activate()`，包含签名计算和 HTTP 调用
-4. 解析响应，提取 `terminal_sn` 和 `terminal_key`
-5. 持久化存储 `terminal_key`（数据库或配置文件）
-6. 创建控制器接口供管理后台调用
-
-## 生成规则
-
-当生成激活接口代码时，**必须**包含：
-1. vendor 级别签名逻辑（MD5(body + vendor_key)）
-2. 完整的请求参数构建
-3. 响应解析，提取 terminal_sn 和 terminal_key
-4. terminal_key 的持久化存储逻辑（至少提供存储接口/占位）
-5. 错误处理（激活失败的重试或提示）
-
-## 模块化生成
-
-本技能支持单独生成以下模块。当用户 prompt 中包含模块关键词时，仅生成对应模块代码，不生成完整流程。无模块关键词时，按上方"生成规则"生成完整代码。
+## 单独模块生成
 
 ### 模块：Vendor 级别签名
 
-**触发关键词**："vendor签名"、"vendor级别签名"、"vendor_sn签名"
-
-**生成规则**：
-1. 使用 vendor_sn + vendor_key（区别于其他接口的 terminal 签名）
-2. Authorization 头格式：`{vendor_sn} {MD5(body + vendor_key)}`
-3. 仅激活接口使用此签名方式
-
-**参考代码（Java）**：
-```java
-// Vendor 级别签名（仅激活接口使用）
-String bodyStr = mapper.writeValueAsString(body);
-String sign = SqbSignUtil.md5Sign(bodyStr, vendorKey);  // 使用 vendor_key
-String authorization = vendorSn + " " + sign;            // 使用 vendor_sn
-```
-
-**参考代码（Python）**：
-```python
-# Vendor 级别签名（仅激活接口使用）
-body_str = json.dumps(body, ensure_ascii=False)
-sign = md5_sign(body_str, vendor_key)  # 使用 vendor_key
-authorization = f"{vendor_sn} {sign}"   # 使用 vendor_sn
-```
+生成 `protocol/security` 层能力，强调仅激活接口使用 `vendor_sn / vendor_key`。
 
 ### 模块：激活请求构建
 
-**触发关键词**："激活请求构建"、"activate request"、"构建激活报文"
-
-**生成规则**：
-1. 构建 JSON 请求体，包含 app_id、code、device_id（必填），name、os_info（可选）
-2. 使用 vendor 级别签名
-3. POST 请求到 `/terminal/activate`
-4. ⚠️ 激活码一次性使用的注释
-5. ⚠️ device_id 唯一性的注释
-
-**参考代码（Java）**：
-```java
-// 激活请求构建
-ObjectNode body = mapper.createObjectNode();
-body.put("app_id", appId);
-body.put("code", activateCode);      // 一次性激活码
-body.put("device_id", deviceId);     // 同门店不同设备需不同 device_id
-body.put("name", terminalName);
-
-String bodyStr = mapper.writeValueAsString(body);
-String sign = SqbSignUtil.md5Sign(bodyStr, vendorKey);
-
-Request request = new Request.Builder()
-    .url("https://vsi-api.shouqianba.com/terminal/activate")
-    .addHeader("Authorization", vendorSn + " " + sign)
-    .addHeader("Content-Type", "application/json; charset=utf-8")
-    .post(RequestBody.create(bodyStr, JSON_TYPE))
-    .build();
-```
-
-**参考代码（Python）**：
-```python
-# 激活请求构建
-body = {
-    "app_id": app_id,
-    "code": activate_code,      # 一次性激活码
-    "device_id": device_id,     # 同门店不同设备需不同 device_id
-    "name": terminal_name,
-}
-body_str = json.dumps(body, ensure_ascii=False)
-sign = md5_sign(body_str, vendor_key)
-headers = {
-    "Authorization": f"{vendor_sn} {sign}",
-    "Content-Type": "application/json; charset=utf-8",
-}
-resp = requests.post(
-    "https://vsi-api.shouqianba.com/terminal/activate",
-    data=body_str.encode("utf-8"),
-    headers=headers,
-    timeout=30,
-)
-```
+只生成请求 DTO 和 HTTP 请求构建逻辑，不生成持久化与控制器。
 
 ### 模块：terminal_key 存储
 
-**触发关键词**："terminal_key存储"、"密钥持久化"、"终端密钥存储"
+只生成存储接口 / 仓储占位，不生成完整业务流程。
 
-**生成规则**：
-1. 从激活响应中提取 terminal_sn 和 terminal_key
-2. 持久化存储策略（数据库 / 配置文件 / 环境变量）
-3. 集群部署时的多节点同步考虑
-4. ⚠️ terminal_key 丢失只能重新激活的注释
+## 生成规则
 
-**参考代码（Java）**：
-```java
-// terminal_key 存储
-String terminalSn = data.get("terminal_sn").asText();
-String terminalKey = data.get("terminal_key").asText();
-// ⚠️ terminal_key 丢失后只能重新激活（需新激活码），务必安全持久化
-terminalKeyStore.save(terminalSn, terminalKey);
-log.info("终端激活成功，terminal_sn={}", terminalSn);
-```
-
-**参考代码（Python）**：
-```python
-# terminal_key 存储
-terminal_sn = data["terminal_sn"]
-terminal_key = data["terminal_key"]
-# ⚠️ terminal_key 丢失后只能重新激活（需新激活码），务必安全持久化
-save_terminal_key(terminal_sn, terminal_key)
-logger.info(f"终端激活成功，terminal_sn={terminal_sn}")
-```
-
-## 代码示例
-
-见 `reference/` 目录：
-- `ActivateExample.java` — Java 示例（OkHttp + Jackson）
-- `activate_example.py` — Python 示例（requests）
+1. 必须包含 vendor 级别签名逻辑
+2. 必须包含 `terminal_sn`、`terminal_key` 解析
+3. 必须包含持久化接口或占位
+4. 必须注明激活码一次性使用
+5. 必须注明 `device_id` 唯一性
