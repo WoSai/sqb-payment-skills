@@ -1,14 +1,27 @@
 ---
 name: sqb-status-parsing
-description: "收钱吧三层状态判定工具。当用户需要单独生成响应解析逻辑、状态判定、三层判定时触发。"
-version: "1.0"
-tags: [status, parsing, response, three-layer, utility]
+description: "收钱吧三层状态判定模块。用于生成 support/status 层中的响应解析、最终状态判断与结构化结果输出。"
+version: "2.0"
+tags: [status, parsing, response, support, mapping]
 globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 ---
 
 # 收钱吧三层状态判定
 
+## 分层定位
+
+本 skill 属于 `support/status` 层。
+
+它负责生成：
+
+- 三层状态解析器
+- 最终状态常量
+- 结构化判定结果
+- provider 状态到本地语义的映射辅助
+
 ## 引导词
+
+### 完整流程
 
 - 三层状态判定
 - 状态解析
@@ -20,56 +33,57 @@ globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 - 最终状态判断
 - 非最终状态
 
-## 概述
+### 单独模块
 
-收钱吧 API 响应采用三层状态判定模型，必须逐层解析才能正确判断交易结果。仅检查第一层 `result_code` 是不够的——必须深入到第三层 `order_status` 才能确定交易最终结果。
+- status mapper
+- 最终状态集合
+- 结构化响应解析
 
 ## 三层判定模型
 
-### 第一层：result_code（通信层）
+### 第一层：result_code
 
-| result_code | 含义 | 处理 |
-|---|---|---|
-| `200` | 通信成功 | 继续判断 biz_response |
-| 非 `200` | 通信失败 | 根据 error_code 处理，可能需要重试 |
+- `200`：通信成功
+- 非 `200`：通信失败
 
-### 第二层：biz_response.result_code（业务层）
+### 第二层：biz_response.result_code
 
-| 分类 | result_code 值 | 处理 |
-|---|---|---|
-| 成功 | PAY_SUCCESS, PRECREATE_SUCCESS, REFUND_SUCCESS, CANCEL_SUCCESS | 检查 order_status |
-| 确定失败 | PAY_FAIL, PRECREATE_FAIL, REFUND_FAIL, CANCEL_ABORT_ERROR, FAIL | 交易结束，无需轮询 |
-| 不确定 | PAY_FAIL_ERROR, PAY_IN_PROGRESS, REFUND_IN_PROGRESS, CANCEL_ERROR | **必须轮询查询** |
+- 成功：`PAY_SUCCESS`、`PRECREATE_SUCCESS`、`REFUND_SUCCESS`、`CANCEL_SUCCESS`
+- 确定失败：`PAY_FAIL`、`PRECREATE_FAIL`、`REFUND_FAIL`、`CANCEL_ABORT_ERROR`、`FAIL`
+- 不确定：`PAY_FAIL_ERROR`、`PAY_IN_PROGRESS`、`REFUND_IN_PROGRESS`、`REFUND_FAIL_ERROR`、`CANCEL_ERROR`
 
-### 第三层：order_status（订单最终状态）
+### 第三层：order_status
 
-| order_status | 类型 | 含义 |
-|---|---|---|
-| `PAID` | **最终状态** | 支付成功 |
-| `PAY_CANCELED` | **最终状态** | 支付已撤销 |
-| `REFUNDED` | **最终状态** | 全额退款成功 |
-| `PARTIAL_REFUNDED` | **最终状态** | 部分退款成功 |
-| `CANCELED` | **最终状态** | 订单已撤销 |
-| `CREATED` | 非最终状态 | 订单已创建，**必须轮询** |
-| `PAY_ERROR` | 非最终状态 | 状态未知，**必须轮询** |
-| `REFUND_ERROR` | 非最终状态 | 退款状态未知，**必须轮询** |
-| `CANCEL_ERROR` | 非最终状态 | 撤单状态未知，**必须轮询** |
+- 最终状态：`PAID`、`PAY_CANCELED`、`REFUNDED`、`PARTIAL_REFUNDED`、`CANCELED`
+- 非最终状态：`CREATED`、`PAY_ERROR`、`REFUND_ERROR`、`CANCEL_ERROR`
 
-> **重要**：收到非最终状态时，**禁止**直接判定为成功或失败，必须启动轮询查询。
+## 目标输出
+
+### 完整流程生成
+
+在完整流程里，本 skill 应为 `support/status` 层提供：
+
+- `FINAL_ORDER_STATUSES`
+- `BIZ_DEFINITE_FAIL_CODES`
+- `BIZ_UNCERTAIN_CODES`
+- `parseResponse(response)`
+
+### 单独模块生成
+
+只生成状态解析模块本身，不生成 HTTP 调用与控制器骨架。
 
 ## 生成规则
 
-当用户需要单独生成状态判定模块时，**必须**包含：
-
-1. 最终状态集合常量 `FINAL_ORDER_STATUSES`（PAID, PAY_CANCELED, REFUNDED, PARTIAL_REFUNDED, CANCELED）
-2. 确定失败码集合常量 `BIZ_DEFINITE_FAIL_CODES`（PAY_FAIL, PRECREATE_FAIL, REFUND_FAIL, CANCEL_ABORT_ERROR, FAIL）
-3. 不确定码集合常量 `BIZ_UNCERTAIN_CODES`（PAY_FAIL_ERROR, PAY_IN_PROGRESS, REFUND_IN_PROGRESS, REFUND_FAIL_ERROR, CANCEL_ERROR）
-4. `isFinalStatus(orderStatus)` 函数：判断是否为最终状态
-5. `parseResponse(response)` 函数：实现三层判定，返回结构化结果（status/orderStatus/sn/clientSn/message/isFinal）
-6. 非最终状态的返回结果中 isFinal=false，标记为"需要轮询"
+1. 必须包含 `FINAL_ORDER_STATUSES`
+2. 必须包含 `BIZ_DEFINITE_FAIL_CODES`
+3. 必须包含 `BIZ_UNCERTAIN_CODES`
+4. 必须提供 `isFinalStatus(orderStatus)`
+5. 必须提供 `parseResponse(response)`，返回结构化结果
+6. 非最终状态必须显式标记为“需要轮询”
 
 ## 代码示例
 
 见 `reference/` 目录：
-- `SqbStatusUtil.java` — Java 三层状态判定工具
-- `sqb_status_util.py` — Python 三层状态判定工具
+
+- `SqbStatusUtil.java`
+- `sqb_status_util.py`

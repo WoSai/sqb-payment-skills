@@ -1,49 +1,43 @@
 ---
 name: sqb-cancel
-description: "[后端项目使用]收钱吧撤单接口技能。用于撤销当天的交易订单。当用户提到收钱吧撤单、冲正、cancel、撤销交易、取消订单时触发。"
-version: "1.1"
-tags: [payment, cancel, void, reversal]
+description: "[后端项目使用]收钱吧撤单/冲正接口技能。用于生成撤单适配器、撤单结果判定和查询确认逻辑。"
+version: "2.0"
+tags: [payment, cancel, reverse, adapter]
 globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
 ---
 
-# 收钱吧撤单（冲正）接口
+# 收钱吧撤单接口
+
+## 分层定位
+
+完整流程生成时，本 skill 应输出：
+
+- `protocol/dto/cancel`
+- `adapter/cancel`：`SqbCancelAdapter`
+- `support/status`
+- `support/polling` 或查询确认辅助
 
 ## 引导词
 
 ### 完整流程
+
 - 收钱吧撤单
 - 冲正
 - cancel
-- 撤销交易
-- 取消订单
-- void
+- 交易撤销
 - 撤单接口
-- /cancel
+- /upay/v2/cancel
+- reverse payment
+- cancel payment
 
 ### 单独模块
-- 撤单请求构建 / cancel request（→ 仅生成撤单请求模块）
-- 撤单结果判定 / cancel结果解析（→ 仅生成撤单结果判定模块）
-- 撤单后查询确认 / cancel查询确认（→ 仅生成查询确认模块）
 
-## 概述
-
-撤单（冲正）用于撤销当天的交易订单。主要用于 pay 接口超时或状态不确定时保障资金安全，防止"商户以为失败但实际扣款成功"的情况。撤单为全额撤销，手续费也会全额退回。
-
-## 前置条件
-
-- 已完成终端激活（sqb-activate），持有 `terminal_sn` 和 `terminal_key`
-- 原订单为当天交易（当日 00:00 后的交易）
-- 原订单未进行过部分退款
-- API 域名：`https://vsi-api.shouqianba.com`
-- 协议：HTTPS POST，Content-Type: `application/json; charset=utf-8`
-
-## 签名方式
-
-```
-Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
-```
-
-> 注意：sn 和 sign 之间有且仅有一个空格。request_body 必须是 UTF-8 编码的原始 JSON 字符串，签名时的字符串必须和实际请求体完全一致（包括字段顺序、空格等）。签名逻辑请参考 `shared-reference/SqbSignUtil`。
+- 撤单请求构建
+- cancel request
+- cancel结果解析
+- 撤单结果判定
+- cancel查询确认
+- cancel adapter
 
 ## 接口说明
 
@@ -51,313 +45,35 @@ Authorization: {terminal_sn} {MD5(request_body + terminal_key)}
 |---|---|
 | 请求路径 | `/upay/v2/cancel` |
 | 请求方法 | POST |
-| Content-Type | `application/json; charset=utf-8` |
-| API 域名 | `https://vsi-api.shouqianba.com` |
+| 核心参数 | `terminal_sn`, `sn/client_sn`, `operator` |
 
-## 请求参数
+## 完整流程生成
 
-| 参数 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| terminal_sn | string | Y | 终端序列号 |
-| sn | string | N | 收钱吧订单号（sn 和 client_sn 二选一） |
-| client_sn | string | N | 商户订单号（sn 和 client_sn 二选一） |
+至少生成以下内容：
 
-> 注意：`sn` 和 `client_sn` 必须至少提供一个，推荐优先使用 `sn`。
+1. `CancelRequest` / `CancelResponse`
+2. `SqbCancelAdapter.cancel(...)`
+3. 撤单结果判定逻辑
+4. 撤单后查询确认逻辑
+5. 无沙盒环境警告
 
-## 请求示例
-
-```json
-{
-    "terminal_sn": "10298371039",
-    "sn": "7892840250140845"
-}
-```
-
-## 响应参数
-
-| 参数 | 说明 |
-|---|---|
-| sn | 收钱吧订单号 |
-| client_sn | 商户订单号 |
-| status | 订单状态 |
-| order_status | 订单状态 |
-| total_amount | 交易总金额（分） |
-| net_amount | 实收金额（分） |
-| finish_time | 撤单完成时间 |
-
-## 响应示例
-
-```json
-{
-    "result_code": "200",
-    "biz_response": {
-        "result_code": "CANCEL_SUCCESS",
-        "data": {
-            "sn": "7892840250140845",
-            "client_sn": "20230615143052001",
-            "status": "PAY_CANCELED",
-            "order_status": "PAY_CANCELED",
-            "total_amount": "100",
-            "net_amount": "0",
-            "finish_time": "1686816852000"
-        }
-    }
-}
-```
-
-## 撤单结果判定（关键）
-
-### 第一层：result_code（通信层）
-
-| result_code | 含义 | 处理 |
-|---|---|---|
-| `200` | 通信成功 | 继续判断 biz_response |
-| 非 `200` | 通信失败 | 根据错误码处理，可能需要重试 |
-
-### 第二层：biz_response.result_code（业务层）
-
-| result_code | 含义 | 处理 |
-|---|---|---|
-| `CANCEL_SUCCESS` | 撤销成功 | 交易已撤销，资金已退回 |
-| `CANCEL_ERROR` | 撤销失败（不确定） | 需调用查询接口确认订单最终状态 |
-| `CANCEL_ABORT_SUCCESS` | 中断支付成功 | 支付中的订单被成功中断 |
-| `CANCEL_ABORT_ERROR` | 中断支付失败 | 需调用查询接口确认订单最终状态 |
-
-> **重要**：收到 `CANCEL_ERROR` 或 `CANCEL_ABORT_ERROR` 时，**禁止**直接判定为撤单成功或失败，必须调用查询接口（sqb-query）确认订单最终状态。
-
-## 使用场景
-
-1. **Pay 接口超时**：调用 pay 接口超时，无法确认扣款结果时，立即发起撤单保障资金安全
-2. **PAY_FAIL_ERROR（不确定失败）**：pay 返回 `PAY_FAIL_ERROR`，查询后仍无法确认最终状态时，发起撤单
-3. **收银员手动取消**：收银员在当天交易记录中手动取消某笔交易
-4. **防止资金损失**：防止"商户以为失败但实际扣款成功"导致顾客资金损失的情况
-
-## 撤单 vs 退款
-
-| 对比项 | 撤单（cancel） | 退款（refund） |
-|---|---|---|
-| 时间限制 | 仅限当天 | 通常 3 个月内 |
-| 金额 | 全额撤销 | 支持部分退款 |
-| 手续费 | 全额退回 | 可能不退手续费 |
-| 主要用途 | 异常处理、资金安全保障 | 正常业务退款 |
-| 已部分退款的订单 | **不可撤单** | 可继续退款 |
-
-## 关键限制
-
-1. **仅限当天订单**（当日 00:00 后的交易），跨天的交易只能走退款流程
-2. **全额撤销**，不支持部分撤销
-3. **已部分退款的订单不能撤单**，只能继续走退款流程
-4. **手续费全额退回**，这是与退款的关键区别
-
-## 撤单失败后的查询确认流程
-
-```
-1. 发起撤单请求
-2. 判断 biz_response.result_code：
-   ├── CANCEL_SUCCESS → 撤单成功，流程结束
-   ├── CANCEL_ABORT_SUCCESS → 中断支付成功，流程结束
-   ├── CANCEL_ERROR → 撤单结果不确定，进入步骤 3
-   └── CANCEL_ABORT_ERROR → 中断结果不确定，进入步骤 3
-3. 调用查询接口（sqb-query）确认订单最终状态
-   ├── order_status = PAY_CANCELED → 撤单已生效
-   ├── order_status = PAID → 撤单未生效，订单仍为已支付（可重新发起撤单或退款）
-   └── 其他状态 → 继续轮询查询
-4. 若查询仍无法确认，建议人工介入处理
-```
-
-## 核心流程
-
-```
-1. 收银系统组装请求参数（terminal_sn, sn 或 client_sn）
-2. 计算签名（参考 shared-reference/SqbSignUtil），POST 到 /upay/v2/cancel
-3. 解析响应：
-   └─ result_code（通信层）
-       └─ biz_response.result_code（业务层）
-4. 根据 result_code 判定撤单结果
-5. 若为 CANCEL_ERROR 或 CANCEL_ABORT_ERROR，调用查询接口确认
-```
-
-## 陷阱与注意事项
-
-1. **所有交易都是真实的**（无沙盒环境）—— 撤单操作不可逆
-2. **签名字符串一致性**—— MD5 计算时的 body 字符串必须与实际发送的完全一致
-3. **当天限制**—— 跨天后无法撤单，只能走退款流程
-4. **已部分退款不可撤单**—— 已发生过部分退款的订单，只能继续退款
-5. **超时后必须查询确认**—— 网络超时不代表撤单失败，必须查询确认
-
-## 架构设计
-
-```
-项目结构
-├── controller/
-│   └── SqbCancelController          # 撤单控制器
-├── service/
-│   ├── SqbCancelService             # 撤单核心逻辑
-│   └── SqbQueryService              # 查询确认逻辑
-├── model/
-│   ├── CancelRequest                # 撤单请求 DTO
-│   ├── CancelResponse               # 撤单响应 DTO
-│   └── CancelResultCode             # 撤单结果码枚举
-└── util/
-    ├── SqbSignUtil                   # 签名工具类（shared-reference）
-    └── SqbHttpClient                 # HTTP 客户端封装
-```
-
-## 生成规则
-
-当生成撤单接口代码时，**必须**包含：
-1. 签名逻辑引用 `shared-reference/SqbSignUtil`（MD5(body + terminal_key)）
-2. 撤单结果判定逻辑（CANCEL_SUCCESS / CANCEL_ERROR / CANCEL_ABORT_SUCCESS / CANCEL_ABORT_ERROR）
-3. 撤单失败后的查询确认流程（调用 sqb-query 确认订单最终状态）
-4. 当天限制的提醒注释（仅限当日 00:00 后的交易）
-5. 生成代码注释中标注 `⚠️ 警告：收钱吧没有沙盒环境，此代码将发起真实交易`
-
-**可选但建议**包含：
-- 撤单前的订单状态校验
-- 已部分退款订单的拦截逻辑
-- 超时处理
-- 日志记录
-
-## 模块化生成
-
-本技能支持单独生成以下模块。当用户 prompt 中包含模块关键词时，仅生成对应模块代码，不生成完整流程。无模块关键词时，按上方"生成规则"生成完整代码。
-
-> 签名等跨接口共享模块请使用对应的独立 Skill（sqb-signing）。
+## 单独模块生成
 
 ### 模块：撤单请求构建
 
-**触发关键词**："撤单请求构建"、"cancel request"、"构建撤单报文"
-
-**生成规则**：
-1. 构建 JSON 请求体，包含 terminal_sn 和 sn/client_sn
-2. 调用签名工具计算 Authorization 头
-3. POST 请求到 `/upay/v2/cancel`
-4. ⚠️ 仅限当天订单的注释
-5. ⚠️ 已部分退款的订单不可撤单的注释
-6. ⚠️ 无沙盒环境警告
-
-**参考代码（Java）**：
-```java
-// 撤单请求构建（需配合 SqbSignUtil 签名工具使用）
-ObjectNode body = mapper.createObjectNode();
-body.put("terminal_sn", terminalSn);
-body.put("sn", sn);  // 推荐使用 sn，也可用 client_sn
-
-String bodyStr = mapper.writeValueAsString(body);
-String sign = SqbSignUtil.md5Sign(bodyStr, terminalKey);
-
-Request request = new Request.Builder()
-    .url("https://vsi-api.shouqianba.com/upay/v2/cancel")
-    .addHeader("Authorization", terminalSn + " " + sign)
-    .addHeader("Content-Type", "application/json; charset=utf-8")
-    .post(RequestBody.create(bodyStr, JSON_TYPE))
-    .build();
-```
-
-**参考代码（Python）**：
-```python
-# 撤单请求构建（需配合 sqb_sign_util 签名工具使用）
-body = {
-    "terminal_sn": terminal_sn,
-    "sn": sn,  # 推荐使用 sn，也可用 client_sn
-}
-body_str = json.dumps(body, ensure_ascii=False)
-sign = md5_sign(body_str, terminal_key)
-headers = {
-    "Authorization": f"{terminal_sn} {sign}",
-    "Content-Type": "application/json; charset=utf-8",
-}
-resp = requests.post(
-    "https://vsi-api.shouqianba.com/upay/v2/cancel",
-    data=body_str.encode("utf-8"),
-    headers=headers,
-    timeout=30,
-)
-```
+只生成 DTO 与请求调用。
 
 ### 模块：撤单结果判定
 
-**触发关键词**："撤单结果判定"、"cancel结果解析"、"CANCEL_ERROR处理"
-
-**生成规则**：
-1. 判定 biz_response.result_code 四种结果：CANCEL_SUCCESS、CANCEL_ERROR、CANCEL_ABORT_SUCCESS、CANCEL_ABORT_ERROR
-2. CANCEL_SUCCESS / CANCEL_ABORT_SUCCESS → 撤单成功
-3. CANCEL_ERROR / CANCEL_ABORT_ERROR → 结果不确定，必须查询确认
-4. 禁止将不确定状态直接判定为成功或失败
-
-**参考代码（Java）**：
-```java
-// 撤单结果判定
-String bizResultCode = bizResponse.get("result_code").asText();
-switch (bizResultCode) {
-    case "CANCEL_SUCCESS":
-    case "CANCEL_ABORT_SUCCESS":
-        log.info("撤单成功: sn={}", sn);
-        return CancelResult.SUCCESS;
-    case "CANCEL_ERROR":
-    case "CANCEL_ABORT_ERROR":
-        log.warn("撤单结果不确定，需查询确认: sn={}", sn);
-        return CancelResult.NEED_QUERY;  // 必须调用查询接口确认
-    default:
-        log.error("未知撤单结果码: {}", bizResultCode);
-        return CancelResult.UNKNOWN;
-}
-```
-
-**参考代码（Python）**：
-```python
-# 撤单结果判定
-biz_result_code = biz_response["result_code"]
-if biz_result_code in ("CANCEL_SUCCESS", "CANCEL_ABORT_SUCCESS"):
-    logger.info(f"撤单成功: sn={sn}")
-    return "SUCCESS"
-elif biz_result_code in ("CANCEL_ERROR", "CANCEL_ABORT_ERROR"):
-    logger.warning(f"撤单结果不确定，需查询确认: sn={sn}")
-    return "NEED_QUERY"  # 必须调用查询接口确认
-```
+只生成业务结果码与 `order_status` 判断逻辑。
 
 ### 模块：撤单后查询确认
 
-**触发关键词**："撤单后查询"、"cancel查询确认"、"撤单确认流程"
+只生成撤单后 query adapter 的确认流程。
 
-**生成规则**：
-1. 撤单返回 CANCEL_ERROR/CANCEL_ABORT_ERROR 后，调用查询接口
-2. 根据 order_status 判定：PAY_CANCELED → 撤单已生效；PAID → 撤单未生效
-3. 仍为非最终状态时继续轮询
-4. 超时后提示人工介入
+## 生成规则
 
-**参考代码（Java）**：
-```java
-// 撤单后查询确认
-if (cancelResult == CancelResult.NEED_QUERY) {
-    String orderStatus = queryOrderStatus(sn);
-    if ("PAY_CANCELED".equals(orderStatus) || "CANCELED".equals(orderStatus)) {
-        log.info("撤单已生效: sn={}", sn);
-    } else if ("PAID".equals(orderStatus)) {
-        log.warn("撤单未生效，订单仍为已支付: sn={}", sn);
-        // 可重新发起撤单或走退款流程
-    } else {
-        log.warn("订单状态不确定，继续轮询: status={}", orderStatus);
-    }
-}
-```
-
-**参考代码（Python）**：
-```python
-# 撤单后查询确认
-if cancel_result == "NEED_QUERY":
-    order_status = query_order_status(sn)
-    if order_status in ("PAY_CANCELED", "CANCELED"):
-        logger.info(f"撤单已生效: sn={sn}")
-    elif order_status == "PAID":
-        logger.warning(f"撤单未生效，订单仍为已支付: sn={sn}")
-        # 可重新发起撤单或走退款流程
-    else:
-        logger.warning(f"订单状态不确定，继续轮询: status={order_status}")
-```
-
-## 代码示例
-
-见 `reference/` 目录：
-- `CancelExample.java` — Java 完整示例（OkHttp + Jackson）
-- `cancel_example.py` — Python 完整示例（requests）
+1. 必须引用共享签名模块
+2. 必须引用状态判定模块
+3. 不确定结果必须进入查询确认
+4. 必须保留无沙盒环境警告
