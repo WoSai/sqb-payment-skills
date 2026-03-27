@@ -139,11 +139,6 @@ shouqianba/
 帮我生成一个可复用的收钱吧 MD5 签名模块，包含 serializeBody(body)、md5Sign(bodyStr, key)、buildAuthorization(sn, bodyStr, key)，并给出 Python 调用示例。
 ```
 
-仓库里有一个最小示例可以参考：
-
-- [examples/sqb-signing-demo/README.md](./examples/sqb-signing-demo/README.md)
-- [examples/sqb-signing-demo/test_sqb_signing.py](./examples/sqb-signing-demo/test_sqb_signing.py)
-
 ### 示例 3：生成回调处理骨架
 
 把 `sqb-notify` 和 `sqb-callback-verify` 提供给 AI 后，可以直接提：
