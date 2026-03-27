@@ -3,7 +3,7 @@ name: sqb-checkin
 description: "[后端项目使用]收钱吧终端签到接口技能。用于生成签到、terminal_key 刷新与容灾逻辑的分层适配代码。"
 version: "2.0"
 tags: [payment, terminal, checkin, key-rotation, adapter]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧终端签到接口

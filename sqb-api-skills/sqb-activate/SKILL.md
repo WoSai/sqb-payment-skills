@@ -3,7 +3,7 @@ name: sqb-activate
 description: "[后端项目使用]收钱吧终端激活接口技能。用于生成终端激活的分层适配代码。当用户提到收钱吧激活、终端激活、activate terminal、激活码、设备注册时触发。"
 version: "2.0"
 tags: [payment, terminal, activate, adapter]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧终端激活接口

@@ -3,7 +3,7 @@ name: sqb-cancel
 description: "[后端项目使用]收钱吧撤单/冲正接口技能。用于生成撤单适配器、撤单结果判定和查询确认逻辑。"
 version: "2.0"
 tags: [payment, cancel, reverse, adapter]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧撤单接口

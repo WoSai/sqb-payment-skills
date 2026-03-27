@@ -18,6 +18,8 @@
 - 终端激活、签到、查询、退款、撤单、回调通知
 - 已有项目做局部补齐
 
+当前仓库提供 **Java / Python** 参考实现；其他语言可基于 `SKILL.md` 生成，但暂不提供官方参考代码。
+
 ## 快速上手
 
 ### 第一步：选择你要用的 skill
@@ -187,7 +189,6 @@ shouqianba-payment-skills/
 
 - `sqb-api-skills/`：后端接口和通用模块 skill
 - `sqb-web-skills/`：前端 UI skill
-- `examples/`：最小可运行示例
 - `tests/`：结构和内容校验脚本
 
 ## 验证方式
@@ -198,10 +199,10 @@ shouqianba-payment-skills/
 python3 tests/validate_skills.py
 ```
 
-如果你想单独试跑签名示例，可以执行：
+如果你想快速验证签名参考代码是否可执行，可以直接做语法校验：
 
 ```bash
-python3 -m unittest examples.sqb-signing-demo.test_sqb_signing
+python3 -m py_compile sqb-api-skills/sqb-signing/reference/sqb_sign_util.py
 ```
 
 ## 使用提醒
@@ -229,5 +230,10 @@ python3 -m unittest examples.sqb-signing-demo.test_sqb_signing
 更详细的设计原则、边界说明和迁移背景，可以继续看这些文档：
 
 - [分层架构说明](./docs/architecture.md)
-- [API接口说明](doc.shouqianba.com)
+- [API接口说明](https://doc.shouqianba.com)
 - [收钱吧 API Skills 说明](./sqb-api-skills/README.md)
+- [异常场景参考清单（P1）](./docs/error-scenarios.md)
+- [terminal_key 轮换运行手册（P1）](./docs/key-rotation-runbook.md)
+- [核心字段约束（P1）](./docs/field-constraints.md)
+- [生成代码审查清单（P1）](./docs/generated-code-review-checklist.md)
+- [English Onboarding Skeleton（P1）](./docs/en/README.md)

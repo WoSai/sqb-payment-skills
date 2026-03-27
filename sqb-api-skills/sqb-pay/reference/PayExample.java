@@ -1,9 +1,6 @@
 package com.example.shouqianba;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
@@ -17,6 +14,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import com.example.shouqianba.shared.SqbSignUtil;
 
 /**
  * 收钱吧 B扫C 付款码支付示例
@@ -68,7 +66,7 @@ public class PayExample {
         String bodyStr = mapper.writeValueAsString(body);
 
         // 2. 计算签名
-        String sign = md5(bodyStr + terminalKey);
+        String sign = SqbSignUtil.md5Sign(bodyStr, terminalKey);
 
         // 3. 发送支付请求
         Request request = new Request.Builder()
@@ -193,7 +191,7 @@ public class PayExample {
         body.put("client_sn", clientSn);
 
         String bodyStr = mapper.writeValueAsString(body);
-        String sign = md5(bodyStr + terminalKey);
+        String sign = SqbSignUtil.md5Sign(bodyStr, terminalKey);
 
         Request request = new Request.Builder()
             .url(API_BASE + "/upay/v2/query")
@@ -213,20 +211,6 @@ public class PayExample {
     public static String generateClientSn(String storeId) {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"));
         return storeId + timestamp + String.format("%04d", (int) (Math.random() * 10000));
-    }
-
-    private static String md5(String input) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : digest) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     /**

@@ -3,7 +3,7 @@ name: sqb-status-parsing
 description: "收钱吧三层状态判定模块。用于生成 support/status 层中的响应解析、最终状态判断与结构化结果输出。"
 version: "2.0"
 tags: [status, parsing, response, support, mapping]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧三层状态判定
