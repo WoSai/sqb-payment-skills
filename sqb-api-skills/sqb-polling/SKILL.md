@@ -3,7 +3,7 @@ name: sqb-polling
 description: "收钱吧轮询框架模块。用于生成 support/polling 层中的参数化轮询策略、轮询执行器和超时结果模型。"
 version: "2.0"
 tags: [polling, retry, async, support, query]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧轮询框架

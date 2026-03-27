@@ -3,7 +3,7 @@ name: sqb-pay
 description: "[后端项目使用]收钱吧 B扫C 付款码支付接口技能。用于生成付款码支付的分层适配代码。当用户提到收钱吧支付、付款码支付、扫码收款、B扫C、/pay 时触发。"
 version: "2.0"
 tags: [payment, barcode, b2c, pay, adapter]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧付款码支付接口

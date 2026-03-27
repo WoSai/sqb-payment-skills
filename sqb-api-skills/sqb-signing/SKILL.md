@@ -3,7 +3,7 @@ name: sqb-signing
 description: "收钱吧 MD5 请求签名模块。用于生成 protocol/security 层中的请求签名、Authorization 头构建和请求体序列化能力。"
 version: "2.0"
 tags: [signing, md5, authorization, protocol, security]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧 MD5 请求签名

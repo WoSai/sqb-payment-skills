@@ -3,7 +3,7 @@ name: sqb-precreate
 description: "[后端项目使用]收钱吧 C扫B 预下单接口技能。用于生成二维码支付的分层适配代码。"
 version: "2.0"
 tags: [payment, qrcode, c2b, precreate, adapter]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧 C扫B 预下单接口
