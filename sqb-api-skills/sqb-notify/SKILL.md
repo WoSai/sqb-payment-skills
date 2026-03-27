@@ -3,7 +3,7 @@ name: sqb-notify
 description: "[后端项目使用]收钱吧异步回调通知技能。用于生成回调接收、RSA 验签、幂等与状态分发的分层适配代码。"
 version: "2.0"
 tags: [payment, notify, webhook, callback, adapter]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧异步回调通知

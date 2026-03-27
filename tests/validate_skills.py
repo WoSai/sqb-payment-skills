@@ -120,6 +120,12 @@ def test_docs(result):
         os.path.join(PROJECT_ROOT, "README.md"),
         os.path.join(DOCS_DIR, "architecture.md"),
         os.path.join(DOCS_DIR, "migration.md"),
+        os.path.join(DOCS_DIR, "error-scenarios.md"),
+        os.path.join(DOCS_DIR, "key-rotation-runbook.md"),
+        os.path.join(DOCS_DIR, "field-constraints.md"),
+        os.path.join(DOCS_DIR, "generated-code-review-checklist.md"),
+        os.path.join(DOCS_DIR, "en", "README.md"),
+        os.path.join(DOCS_DIR, "en", "generated-code-review-checklist.md"),
         os.path.join(API_SKILLS_DIR, "README.md"),
     ]
     for doc in required_docs:

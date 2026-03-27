@@ -3,7 +3,7 @@ name: sqb-callback-verify
 description: "收钱吧回调 RSA 验签模块。用于生成 protocol/security 层中的公钥加载、SHA256WithRSA 验签与回调真实性校验能力。"
 version: "2.0"
 tags: [callback, verify, rsa, protocol, security]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧回调 RSA 验签

@@ -3,7 +3,7 @@ name: sqb-query
 description: "[后端项目使用]收钱吧订单查询接口技能。用于生成查询适配器与轮询兜底能力。"
 version: "2.0"
 tags: [payment, query, polling, adapter]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧订单查询接口

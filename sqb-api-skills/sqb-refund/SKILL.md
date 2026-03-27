@@ -3,7 +3,7 @@ name: sqb-refund
 description: "[后端项目使用]收钱吧退款接口技能。用于生成全额退款与部分退款的分层适配代码。"
 version: "2.0"
 tags: [payment, refund, partial-refund, adapter]
-globs: ["**/*.java", "**/*.py", "**/*.kt", "**/*.go"]
+globs: ["**/*.java", "**/*.py"]
 ---
 
 # 收钱吧退款接口
