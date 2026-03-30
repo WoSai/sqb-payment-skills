@@ -9,7 +9,6 @@
 - 从零生成收钱吧某个接口的接入骨架
 - 在现有项目里补签名、状态判定、轮询、回调验签等模块
 - 让 AI 生成更接近实际项目结构的 `protocol/client`、`adapter`、`support`、`bootstrap` 代码
-- 为前端生成收银台 UI，并对接你自己的后端支付接口
 
 适用场景包括：
 
@@ -42,24 +41,18 @@
 - `sqb-polling`：参数化轮询
 - `sqb-callback-verify`：RSA 回调验签
 
-如果你要做前端收银界面，使用：
-
-- `sqb-cashier-ui`：收银台 UI 与扫码交互
-
 ### 第二步：把 skill 提供给 AI 工具
 
 #### Claude Code
 
 ```bash
 cp -r sqb-api-skills/ ~/.claude/skills/
-cp -r sqb-web-skills/ ~/.claude/skills/
 ```
 
 #### Cursor
 
 ```bash
 cp -r sqb-api-skills/ your-project/
-cp -r sqb-web-skills/ your-project/
 ```
 
 #### OpenClaw / Codex
@@ -149,14 +142,6 @@ shouqianba/
 帮我生成收钱吧异步回调处理代码，包含 HTTP POST 回调入口、RSA SHA256WithRSA 验签、幂等处理和 success 响应，按 bootstrap/controller、adapter、protocol/security 分层输出。
 ```
 
-### 示例 4：生成前端收银台
-
-把 `sqb-cashier-ui` 提供给 AI 后，可以直接提：
-
-```text
-帮我生成一个 Vue 收银台页面，支持金额输入、扫码枪输入、支付中/成功/失败/超时状态展示，并通过我自己的后端支付接口发起请求。
-```
-
 ## 仓库结构
 
 ```text
@@ -179,8 +164,6 @@ shouqianba-payment-skills/
 │   ├── sqb-status-parsing/
 │   ├── sqb-polling/
 │   └── sqb-callback-verify/
-├── sqb-web-skills/
-│   └── sqb-cashier-ui/
 └── tests/
     └── validate_skills.py
 ```
@@ -188,7 +171,6 @@ shouqianba-payment-skills/
 你通常只需要关心这几部分：
 
 - `sqb-api-skills/`：后端接口和通用模块 skill
-- `sqb-web-skills/`：前端 UI skill
 - `tests/`：结构和内容校验脚本
 
 ## 验证方式

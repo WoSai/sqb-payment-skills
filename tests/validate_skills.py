@@ -12,7 +12,6 @@
 7.  Python 参考代码语法检查
 8.  Java 参考代码结构检查
 9.  安全边界检查（无沙盒 / 验签不可省略）
-10. 前端 skill 边界检查
 """
 
 import os
@@ -21,7 +20,6 @@ import py_compile
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 API_SKILLS_DIR = os.path.join(PROJECT_ROOT, "sqb-api-skills")
-WEB_SKILLS_DIR = os.path.join(PROJECT_ROOT, "sqb-web-skills")
 DOCS_DIR = os.path.join(PROJECT_ROOT, "docs")
 
 INTERFACE_SKILLS = [
@@ -295,22 +293,6 @@ def test_security_boundaries(result):
             result.fail(f"sqb-notify/SKILL.md 缺少 {phrase}")
 
 
-def test_frontend_boundary(result):
-    print("\n[测试 10] 前端 skill 边界")
-
-    path = os.path.join(WEB_SKILLS_DIR, "sqb-cashier-ui", "SKILL.md")
-    if not os.path.isfile(path):
-        result.fail("sqb-web-skills/sqb-cashier-ui/SKILL.md 不存在")
-        return
-
-    content = read_text(path)
-    for phrase in ["后端", "facade", "不应该直接感知", "terminal_key", "签名"]:
-        if phrase in content:
-            result.ok(f"sqb-cashier-ui/SKILL.md 包含 {phrase}")
-        else:
-            result.fail(f"sqb-cashier-ui/SKILL.md 缺少 {phrase}")
-
-
 def main():
     print("=" * 60)
     print("收钱吧支付 Skills 项目 —— 验证测试 v4")
@@ -326,7 +308,6 @@ def main():
     test_python_syntax(result)
     test_java_shape(result)
     test_security_boundaries(result)
-    test_frontend_boundary(result)
 
     return 0 if result.summary() else 1
 
