@@ -220,7 +220,7 @@ python3 -m py_compile sqb-api-skills/sqb-signing/reference/sqb_sign_util.py
 
 ## 设计摘要
 
-这个项目的目标不是生成“企业支付平台”，而是帮助 AI 生成“收钱吧接入层”代码。推荐输出会围绕以下分层展开：
+这个项目的目标不是生成“企业支付平台”，而是帮助开发者使用AI 生成“收钱吧接入层”代码。推荐输出会围绕以下分层展开：
 
 - `protocol/client`：HTTP 调用、签名、验签、DTO
 - `adapter`：支付、预下单、查询、退款、撤单、回调适配器
