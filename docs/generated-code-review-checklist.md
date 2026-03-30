@@ -6,7 +6,6 @@
 
 - [ ] 是否按 `protocol / adapter / support / bootstrap` 分层？
 - [ ] 是否把收钱吧字段隔离在接入层，而非业务核心域？
-- [ ] 前端是否未直接使用 `terminal_key`、签名、验签逻辑？
 
 ## B. 支付正确性
 
